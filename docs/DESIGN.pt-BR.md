@@ -116,11 +116,11 @@ redis-grpc-client-parent        (pom raiz — agregador, dependencyManagement, c
 
 ## 5. Split build-time vs. runtime (decidido — P1)
 
-- **Módulo runtime:** as **classes de alto nível por família** (Nível 1 — §7) sobre
-  o `GrpcClient` do Vert.x; o config root `@ConfigMapping` (§8); um **producer CDI**
-  (sem `@Recorder`) que monta o `GrpcClient` a partir do `Vertx` gerenciado + o TLS
-  Registry e produz os quatro clientes; o helper de chamada compartilhado que injeta
-  os headers de credencial (§7, 2d).
+- **Módulo runtime:** o **agregador `RedisGrpcClient`** e seus quatro clientes de
+  família (Nível 1 — §7) sobre o `GrpcClient` do Vert.x; o config root
+  `@ConfigMapping` (§8); um **producer CDI** (sem `@Recorder`) que monta o
+  `GrpcClient` a partir do `Vertx` gerenciado + o TLS Registry e produz o agregador;
+  o helper de chamada compartilhado que injeta os headers de credencial (§7, 2d).
 - **Módulo deployment:** `@BuildStep`s — `FeatureBuildItem`;
   `AdditionalBeanBuildItem` (para o consumidor sempre descobrir o producer/clientes);
   `ReflectiveClassBuildItem` (native: as classes de mensagem geradas — §7, 2e).
@@ -170,7 +170,7 @@ as decisões numeradas abaixo dão a justificativa.)
 |---|---|
 | **2a** | Codegen **só mensagens** — `protoc --java_out` via plugin Maven; largar `quarkus-grpc-stubs`/`-codegen`/grpc-netty. |
 | **2b** | Superfície de config — o root `@ConfigMapping` (§8) + deps `quarkus-tls-registry` (runtime + `-deployment`). |
-| **2c** | Canal + clientes — `GrpcClient` do `vertx-grpc-client` via producer CDI (`Vertx` gerenciado + TLS Registry); os quatro clientes de alto nível Nível 1; `AdditionalBeanBuildItem`. |
+| **2c** | Canal + clientes — `GrpcClient` do `vertx-grpc-client` via producer CDI (`Vertx` gerenciado + TLS Registry); o agregador `RedisGrpcClient` + seus quatro clientes de família (Nível 1); `AdditionalBeanBuildItem`. |
 | **2d** | Credenciais — injeção central dos headers ACCESS_KEY/SECRET_KEY no helper de chamada compartilhado. |
 | **2e** | Config de native — `@BuildStep`s no deployment registrando as classes de mensagem para reflection (**execução** do build native **adiada**). |
 | **2f** | Testes — re-adicionar o módulo `integration-tests` (fake server Vert.x hermético + testes JVM/native + teste opt-in ao vivo no CRC). |
@@ -190,12 +190,14 @@ as decisões numeradas abaixo dão a justificativa.)
    Mutiny do quarkus nem o `vertx-grpc-protoc-plugin2`): gRPC só precisa de
    transporte + descritores de método + marshallers; stubs são açúcar opcional, e o
    consumidor toca nas **nossas** classes de alto nível, que encapsulam o baixo nível.
-4. **[DECIDIDO] Superfície pública — classes de alto nível por família (Nível 1).**
-   Uma classe por família (String/Hash/Set/Key), métodos **tipados por mensagem**
-   retornando `Uni`, dirigindo o `GrpcClient` via descritores `ServiceMethod` +
-   marshallers protobuf. Encapsula canal/descritores/marshalling/headers; **fiel 1:1**
-   (sem lógica de negócio). *(Substitui "expor stubs crus".)* Um Nível 2 ergonômico
-   (tipado por primitivos) é um futuro **aditivo**, não agora.
+4. **[DECIDIDO] Superfície pública — um agregador único `RedisGrpcClient` (Nível 1).**
+   Um bean injetável `RedisGrpcClient` expondo as quatro famílias via
+   `.string()` / `.hash()` / `.set()` / `.key()`; cada um devolve um cliente de
+   família cujos métodos **tipados por mensagem** retornam `Uni`, dirigindo o
+   `GrpcClient` via descritores `ServiceMethod` + marshallers protobuf. Encapsula
+   canal/descritores/marshalling/headers; **fiel 1:1** (sem lógica de negócio).
+   *(Substitui "expor stubs crus" e o antigo "quatro beans separados".)* Um Nível 2
+   ergonômico (tipado por primitivos) é um futuro **aditivo**.
 5. **[DECIDIDO] Superfície de configuração — 2b** — ver §8.
 6. **[DECIDIDO] Fiação — 2c** — um **producer CDI** (sem `@Recorder`; nada exige
    trabalho em build-time/static-init) monta o `GrpcClient` + os quatro clientes;
@@ -281,8 +283,9 @@ depois seria quebra de config, então fica deliberadamente adiado.
   largar `quarkus-grpc`/`-stubs`/`-codegen`/grpc-netty; construir sobre
   `vertx-grpc-client` + o `Vertx` gerenciado; codegen = **só mensagens** (§7).
   *(Substituiu o 2a com quarkus-grpc-stubs + grpc-netty.)*
-- [x] **Superfície pública** — **classes de alto nível por família (Nível 1)**,
-  tipadas por mensagem, retornando `Uni`; sem stubs crus (§7). *(Substituiu "stubs Mutiny crus".)*
+- [x] **Superfície pública** — agregador único **`RedisGrpcClient`** expondo quatro
+  clientes de família (Nível 1), tipados por mensagem, retornando `Uni`; sem stubs
+  crus (§7). *(Substituiu "stubs Mutiny crus" e "quatro beans separados".)*
 - [x] **Superfície de configuração (2b)** — cliente único default sob
   `quarkus.redis-grpc-client.*`, RUN_TIME, TLS via Quarkus TLS Registry (§8).
 - [x] **Fiação (2c)** — producer CDI, sem `@Recorder`; `AdditionalBeanBuildItem` (§7).
