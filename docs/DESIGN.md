@@ -54,21 +54,34 @@ reason to be an extension rather than a runtime-only helper.
 
 ## 3. Stack
 
-- **Quarkus** — Red Hat build (`com.redhat.quarkus.platform`), platform
-  **3.27.3.redhat-00003**, matching the proxy.
-- **Java 21**.
+- **Quarkus** — **community** (`io.quarkus`), **3.15 LTS** floor; built/tested
+  against the latest 3.15 patch (`3.15.7`). Deliberately community (not the proxy's
+  Red Hat build) so the extension targets the broad ecosystem; a single coherent
+  version drives the BOM and all Quarkus plugins (no platform/core build-number
+  split to juggle).
+- **Java 21** (`maven.compiler.release=21`).
 - **gRPC** reactive with **Mutiny** (`Uni`/`Multi`) — same model as the proxy.
 
-### 3.1 Red Hat platform vs. core build numbers (build note)
+### 3.1 Version strategy and consumer compatibility
 
-The **platform** BOM (`com.redhat.quarkus.platform:quarkus-bom`) is at
-`3.27.3.redhat-00003`. The **extension build tooling**
-(`io.quarkus:quarkus-extension-maven-plugin`, `quarkus-extension-processor`)
-follows the upstream **core** build, which in the Red Hat productization carries a
-**different build number** — `3.27.3.redhat-00001`. A plain application never sees
-this (it uses the platform `quarkus-maven-plugin`), but an extension references the
-core-aligned tooling directly. The two are pinned via separate properties:
-`quarkus.version` (platform, -00003) and `quarkus.core.version` (core, -00001).
+- **Floor = 3.15 LTS.** Conservative within the 3.x major: an LTS floor (not the
+  oldest 3.x, which predates solid Java 21 support and uses EOL tooling).
+- **Consumers govern their own versions.** A consuming Quarkus app imports its own
+  platform BOM; in Maven, the consumer's `dependencyManagement` overrides the
+  versions of all shared artifacts (`io.quarkus:*`, `io.grpc:*`, protobuf, mutiny)
+  this extension brings transitively. So a consumer on any `3.x >= 3.15` — Red Hat
+  *or* community — aligns those to its own version; our pinned version is just the
+  build/test baseline and the fallback when the consumer manages nothing.
+- **Two compatibility tiers (the real nuance):** runtime APIs are stable within the
+  major (and realigned by the consumer's BOM), so building against a low floor is
+  safe there; the **deployment SPI** (`@BuildStep`/`BuildItem`) is **not** ABI-
+  guaranteed across 3.x minors. Mitigation: keep the `deployment` module **thin**
+  and use only the most stable build items (`AdditionalBeanBuildItem`,
+  `SyntheticBeanBuildItem`, `ReflectiveClassBuildItem`).
+- **Codegen tooling does not propagate.** `quarkus-grpc-codegen` is `optional`
+  (and excludes `quarkus-core-deployment`), so consumers never receive it — only
+  our own build uses it for `generate-code` (see §6/§7 and the 2a notes).
+- **Minimum supported Quarkus: 3.15** (documented in the README).
 
 ---
 
@@ -165,8 +178,9 @@ this project:
   `-deployment`, `-parent`; package `...redis.grpc.client`; `0.1.0-SNAPSHOT`.
 - [x] Scaffolding via the official Quarkus `create-extension` generator, pruned
   to runtime + deployment.
-- [x] Platform `com.redhat.quarkus.platform` 3.27.3.redhat-00003 / Java 21;
-  extension tooling pinned to core `3.27.3.redhat-00001` (§3.1).
+- [x] Base **community Quarkus, 3.15 LTS floor** (built/tested on `3.15.7`) /
+  Java 21 — conservative, consumer BOM governs shared versions (§3, §3.1).
+  *(Superseded the initial Red Hat 3.27.3 baseline.)*
 - [x] Code conventions from the proxy DESIGN §10 **ratified as binding** (§6).
 - [x] Reference `.proto` snapshot vendored in `contract/` (reflection-derived,
   validated semantically against the proxy source); build-wiring still open

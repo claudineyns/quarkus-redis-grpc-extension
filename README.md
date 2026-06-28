@@ -27,5 +27,15 @@ are captured in [docs/DESIGN.md](docs/DESIGN.md).
 mvn -B -ntp clean install
 ```
 
-Requires Java 21 and the Red Hat build of Quarkus (`com.redhat.quarkus.platform`
-3.27.3.redhat-00003).
+Built with **community Quarkus, 3.15 LTS** floor (tested on `3.15.7`) and
+**Java 21**.
+
+### Consumer compatibility
+
+- **Minimum Quarkus: 3.15** (the LTS floor). Use any `3.x >= 3.15`.
+- A consuming Quarkus app's own platform BOM governs the versions of the shared
+  artifacts this extension brings transitively (Maven `dependencyManagement`
+  overrides transitive versions). Red Hat or community consumers both work; the
+  pinned version here is the build/test baseline, not an imposition.
+- The build-time code generator (`quarkus-grpc-codegen`) is `optional` and never
+  propagates to consumers.

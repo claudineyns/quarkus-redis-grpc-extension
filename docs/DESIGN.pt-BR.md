@@ -54,22 +54,35 @@ registro de reflection para as classes gRPC/protobuf geradas, validação de con
 
 ## 3. Stack
 
-- **Quarkus** — build da Red Hat (`com.redhat.quarkus.platform`), plataforma
-  **3.27.3.redhat-00003**, igual à do proxy.
-- **Java 21**.
+- **Quarkus** — **community** (`io.quarkus`), **piso 3.15 LTS**; construído/testado
+  contra o último patch 3.15 (`3.15.7`). Deliberadamente community (não o build
+  Red Hat do proxy), para mirar o ecossistema amplo; uma única versão coerente
+  dirige o BOM e todos os plugins Quarkus (sem o split de build-number
+  plataforma/core para administrar).
+- **Java 21** (`maven.compiler.release=21`).
 - **gRPC** reativo com **Mutiny** (`Uni`/`Multi`) — mesmo modelo do proxy.
 
-### 3.1 Número de build: plataforma vs. core na Red Hat (nota de build)
+### 3.1 Estratégia de versão e compatibilidade do consumidor
 
-A BOM de **plataforma** (`com.redhat.quarkus.platform:quarkus-bom`) está em
-`3.27.3.redhat-00003`. Já o **ferramental de build de extensão**
-(`io.quarkus:quarkus-extension-maven-plugin`, `quarkus-extension-processor`)
-segue o build do **core** upstream, que na produtização Red Hat carrega um
-**número de build diferente** — `3.27.3.redhat-00001`. Uma aplicação comum nunca
-vê isso (usa o `quarkus-maven-plugin` de plataforma), mas uma extensão referencia
-o ferramental alinhado ao core diretamente. Os dois são fixados em propriedades
-separadas: `quarkus.version` (plataforma, -00003) e `quarkus.core.version`
-(core, -00001).
+- **Piso = 3.15 LTS.** Conservador dentro do major 3.x: um piso LTS (não o 3.x mais
+  antigo, que antecede o suporte sólido a Java 21 e usa tooling EOL).
+- **O consumidor governa as próprias versões.** Uma app Quarkus consumidora importa
+  o BOM de plataforma dela; no Maven, o `dependencyManagement` do consumidor
+  sobrescreve as versões de todos os artefatos compartilhados (`io.quarkus:*`,
+  `io.grpc:*`, protobuf, mutiny) que esta extensão traz transitivamente. Logo, um
+  consumidor em qualquer `3.x >= 3.15` — Red Hat *ou* community — realinha tudo à
+  versão dele; a nossa versão fixa é só a baseline de build/teste e o fallback
+  quando o consumidor não gerencia nada.
+- **Dois níveis de compatibilidade (a nuance real):** as APIs de runtime são
+  estáveis dentro do major (e realinhadas pelo BOM do consumidor), então compilar
+  contra um piso baixo é seguro aí; já a **SPI de deployment** (`@BuildStep`/
+  `BuildItem`) **não** tem ABI garantida entre minors do 3.x. Mitigação: manter o
+  módulo `deployment` **enxuto** e usar só os build items mais estáveis
+  (`AdditionalBeanBuildItem`, `SyntheticBeanBuildItem`, `ReflectiveClassBuildItem`).
+- **O tooling de codegen não propaga.** `quarkus-grpc-codegen` é `optional` (e
+  exclui `quarkus-core-deployment`), então os consumidores nunca o recebem — só o
+  nosso build o usa para o `generate-code` (ver §6/§7 e as notas do 2a).
+- **Versão mínima de Quarkus suportada: 3.15** (documentada no README).
 
 ---
 
@@ -171,8 +184,9 @@ projeto:
   `-deployment`, `-parent`; pacote `...redis.grpc.client`; `0.1.0-SNAPSHOT`.
 - [x] Scaffolding via o gerador oficial `create-extension` do Quarkus, podado para
   runtime + deployment.
-- [x] Plataforma `com.redhat.quarkus.platform` 3.27.3.redhat-00003 / Java 21;
-  ferramental de extensão fixado no core `3.27.3.redhat-00001` (§3.1).
+- [x] Base **community Quarkus, piso 3.15 LTS** (build/teste em `3.15.7`) /
+  Java 21 — conservador, BOM do consumidor governa as versões compartilhadas
+  (§3, §3.1). *(Substituiu a baseline inicial Red Hat 3.27.3.)*
 - [x] Convenções de código do DESIGN §10 do proxy **ratificadas como vinculantes**
   (§6).
 - [x] Snapshot de referência do `.proto` vendorizado em `contract/`
