@@ -1,0 +1,1 @@
+Nothing yet; first step is to prepare this project for quarkus extension as specified in CLAUDE.md; after that, remove this block of instruction.

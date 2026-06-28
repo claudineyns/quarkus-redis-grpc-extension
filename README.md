@@ -1,2 +1,3 @@
 # quarkus-redis-grpc-extension
-Extensão quarkus para o projeto `quarkus-redis-grpc`
+
+Quarkus extension for project `quarkus-redis-grpc`
