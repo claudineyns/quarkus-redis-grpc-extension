@@ -2,18 +2,30 @@ package io.github.claudineyns.redis.grpc.client.deployment;
 
 import java.util.Optional;
 
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
+import org.jboss.logging.Logger;
+
 import io.github.claudineyns.redis.grpc.client.runtime.MicrometerRedisGrpcMetrics;
 import io.github.claudineyns.redis.grpc.client.runtime.RedisGrpcClientProducer;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
+import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
+import io.quarkus.deployment.builditem.IndexDependencyBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.metrics.MetricsCapabilityBuildItem;
 import io.quarkus.runtime.metrics.MetricsFactory;
 
 class RedisGrpcClientProcessor {
 
+    private static final Logger LOG = Logger.getLogger(RedisGrpcClientProcessor.class);
+
     private static final String FEATURE = "redis-grpc-client";
+
+    /** Pacote das classes de mensagem protobuf geradas (java_package do contrato). */
+    private static final String MESSAGE_PACKAGE_PREFIX = "io.github.claudineyns.redis.grpc.v1.";
 
     @BuildStep
     FeatureBuildItem feature() {
@@ -51,5 +63,37 @@ class RedisGrpcClientProcessor {
                     .setUnremovable()
                     .build());
         }
+    }
+
+    /**
+     * As classes de mensagem geradas vivem no nosso runtime jar, que por padrão não
+     * entra no índice Jandex do consumidor. Pedimos a indexação dele para que o scan
+     * abaixo as encontre.
+     */
+    @BuildStep
+    IndexDependencyBuildItem indexRuntime() {
+        return new IndexDependencyBuildItem("io.github.claudineyns", "redis-grpc-client");
+    }
+
+    /**
+     * Native (2e): registra as classes de mensagem protobuf geradas para reflection.
+     * O {@code protobuf-java} usa reflection na {@code FieldAccessorTable}
+     * (getters/setters) e nos builders. Varremos o índice pelo pacote gerado (em vez
+     * de lista fixa) para cobrir automaticamente as mensagens atuais e futuras.
+     * Best-effort: validado só quando um build native rodar.
+     */
+    @BuildStep
+    void registerProtobufMessagesForReflection(final CombinedIndexBuildItem combinedIndex,
+            final BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
+        final String[] classes = combinedIndex.getIndex().getKnownClasses().stream()
+                .map(ClassInfo::name)
+                .map(DotName::toString)
+                .filter(name -> name.startsWith(MESSAGE_PACKAGE_PREFIX))
+                .toArray(String[]::new);
+        if (classes.length > 0) {
+            reflectiveClasses.produce(ReflectiveClassBuildItem.builder(classes).methods().fields().build());
+        }
+        LOG.debugf("redis-grpc-client: registered %d protobuf message class(es) for native reflection",
+                classes.length);
     }
 }
