@@ -39,3 +39,15 @@ Built with **community Quarkus, 3.15 LTS** floor (tested on `3.15.7`) and
   pinned version here is the build/test baseline, not an imposition.
 - The build-time code generator (`quarkus-grpc-codegen`) is `optional` and never
   propagates to consumers.
+
+## Metrics
+
+Optional, opt-in via **Micrometer**: when the consumer has the Micrometer metrics
+system active, the extension records a `Timer` `redis.grpc.client.call` per RPC,
+tagged `service` / `method` / `status` (the Redis key is never a tag). Toggle with
+`quarkus.redis-grpc-client.metrics.enabled` (default `true`).
+
+Micrometer is a vendor-neutral facade, so the **export backend is the consumer's
+choice** — add the matching registry: `quarkus-micrometer-registry-prometheus` for
+Prometheus, `micrometer-registry-otlp` for **OpenTelemetry/OTLP**, etc. No
+extension change is needed to switch backends.

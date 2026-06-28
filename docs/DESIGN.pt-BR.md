@@ -239,6 +239,16 @@ as decisões numeradas abaixo dão a justificativa.)
    ao cliente — ninguém a consome e não há exclusividade a proteger. Nós *consumimos*
    capabilities de terceiros (MICROMETER) mas não expomos nenhuma. Revisitar só se uma
    futura extensão precisar nos detectar ou se a coexistência precisar de gate.
+13. **[DECIDIDO] Backend de métricas = escolha do consumidor (sem caminho OTel-nativo).**
+   Micrometer é uma **fachada** neutra; OpenTelemetry/OTLP é só um dos ~19 registries
+   de exportação dele (`micrometer-registry-otlp`), ao lado de Prometheus, Datadog,
+   JMX, etc. Gravando no `MeterRegistry` já somos agnósticos ao backend — o consumidor
+   escolhe o destino adicionando o registry correspondente (Prometheus,
+   **OTLP/OpenTelemetry**, …); zero código extra, "fluido conforme o ambiente".
+   Deliberadamente **não** adicionamos uma segunda instrumentação OTel-nativa
+   (`io.opentelemetry.api.metrics`): serviria só ao consumidor incomum "OTel sem
+   Micrometer" e arrisca dupla contagem quando ambos ativos. Revisitar só se esse
+   consumidor for real (o quarkus-opentelemetry também faz bridge Micrometer→OTel).
 
 ---
 

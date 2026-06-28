@@ -236,6 +236,16 @@ decisions below give the rationale.)
    leaf, client-facing extension — nothing consumes it, and there is no exclusivity to
    protect. We *consume* others' capabilities (MICROMETER) but expose none. Revisit
    only if a future extension must detect us or coexistence must be gated.
+13. **[DECIDED] Metrics backend = consumer's choice (no OTel-native dual path).**
+   Micrometer is a vendor-neutral **facade**; OpenTelemetry/OTLP is just one of its
+   ~19 export registries (`micrometer-registry-otlp`), alongside Prometheus, Datadog,
+   JMX, etc. By recording to the `MeterRegistry` we are already backend-agnostic —
+   the consumer picks the destination by adding the matching registry (Prometheus,
+   **OTLP/OpenTelemetry**, …); zero extra code, "fluid per environment". We
+   deliberately **do not** add a second, OTel-native (`io.opentelemetry.api.metrics`)
+   instrumentation path: it would only serve the uncommon "OTel metrics without
+   Micrometer" consumer and risks double-counting when both are active. Revisit only
+   if such a consumer is real (quarkus-opentelemetry can also bridge Micrometer→OTel).
 
 ---
 
