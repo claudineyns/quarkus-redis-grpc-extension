@@ -162,6 +162,19 @@ projeto:
 "Quarkus reactive friendly" sempre que fizer sentido; **enxuto** — evitar código
 desnecessário (daí: sem `@Recorder`, sem stubs gerados).
 
+**Roadmap de implementação (estágios P1).** O código entra nesta ordem; cada
+estágio é pequeno e verificado de forma independente. (São as unidades de trabalho;
+as decisões numeradas abaixo dão a justificativa.)
+
+| Estágio | Escopo |
+|---|---|
+| **2a** | Codegen **só mensagens** — `protoc --java_out` via plugin Maven; largar `quarkus-grpc-stubs`/`-codegen`/grpc-netty. |
+| **2b** | Superfície de config — o root `@ConfigMapping` (§8) + deps `quarkus-tls-registry` (runtime + `-deployment`). |
+| **2c** | Canal + clientes — `GrpcClient` do `vertx-grpc-client` via producer CDI (`Vertx` gerenciado + TLS Registry); os quatro clientes de alto nível Nível 1; `AdditionalBeanBuildItem`. |
+| **2d** | Credenciais — injeção central dos headers ACCESS_KEY/SECRET_KEY no helper de chamada compartilhado. |
+| **2e** | Config de native — `@BuildStep`s no deployment registrando as classes de mensagem para reflection (**execução** do build native **adiada**). |
+| **2f** | Testes — re-adicionar o módulo `integration-tests` (fake server Vert.x hermético + testes JVM/native + teste opt-in ao vivo no CRC). |
+
 1. **[DECIDIDO] Compartilhamento do contrato `.proto`** (§2, §4) — referência
    **vendorizada** em `contract/`, copiada para `runtime/src/main/proto` como input
    de build.

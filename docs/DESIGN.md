@@ -160,6 +160,19 @@ this project:
 "Quarkus reactive friendly" wherever sensible; **enxuto** — avoid unnecessary code
 (hence: no `@Recorder`, no generated stubs).
 
+**Implementation roadmap (P1 stages).** Code lands in this order; each stage is
+small and independently verified. (These are the work units; the numbered
+decisions below give the rationale.)
+
+| Stage | Scope |
+|---|---|
+| **2a** | Codegen **messages only** — `protoc --java_out` via a protobuf Maven plugin; drop `quarkus-grpc-stubs`/`-codegen`/grpc-netty. |
+| **2b** | Config surface — the `@ConfigMapping` root (§8) + `quarkus-tls-registry` deps (runtime + `-deployment`). |
+| **2c** | Channel + clients — `vertx-grpc-client` `GrpcClient` via a CDI producer (managed `Vertx` + TLS Registry); the four high-level Level-1 clients; `AdditionalBeanBuildItem`. |
+| **2d** | Credentials — central ACCESS_KEY/SECRET_KEY header injection in the shared call helper. |
+| **2e** | Native config — deployment `@BuildStep`s registering the message classes for reflection (native build **execution deferred**). |
+| **2f** | Tests — re-add the `integration-tests` module (hermetic Vert.x fake server + JVM/native tests + opt-in CRC live test). |
+
 1. **[DECIDED] `.proto` contract sharing** (§2, §4) — **vendored** reference in
    `contract/`, copied to `runtime/src/main/proto` as the build input.
 2. **[DECIDED] Architecture — P1: pure Vert.x gRPC, stub-less, client-only.**
