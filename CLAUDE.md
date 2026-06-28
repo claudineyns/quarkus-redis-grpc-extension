@@ -24,10 +24,14 @@
 
 ## O projeto em um parágrafo
 
-`redis-grpc-extension` é uma extensão quarkus do projeto adjacente `quarkus-redis-grpc` que implementa o componente `redis-grpc`, que por sua vez é um **gateway gRPC sobre Redis** — um proxy norte-sul que expõe
-comandos Redis como RPCs gRPC (1:1), para que clientes externos alcancem um Redis
-interno do cluster através de uma route OpenShift com passthrough. Detalhes de
-arquitetura, modelagem e decisões da extensão estão em [docs/DESIGN.md](docs/DESIGN.md).
+`redis-grpc-client` é uma **extensão Quarkus client-side** do gateway `redis-grpc`
+— implementado no projeto adjacente `quarkus-redis-grpc`, um **gateway gRPC sobre
+Redis** (proxy norte-sul que expõe comandos Redis como RPCs gRPC 1:1, para que
+clientes externos alcancem um Redis interno do cluster através de uma route
+OpenShift com passthrough). Esta extensão **consome** esse gateway: ela não o
+implementa nem redefine seu contrato `.proto` (esse é versionado no projeto do
+proxy). Detalhes de arquitetura, modelagem e decisões da extensão estão em
+[docs/DESIGN.md](docs/DESIGN.md).
 
 ---
 
