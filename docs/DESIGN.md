@@ -45,6 +45,10 @@ reason to be an extension rather than a runtime-only helper.
   publishing a contract artifact vs. direct reference vs. vendored copy — is the
   **first design decision to settle after the skeleton**. The proxy DESIGN
   explicitly deferred it to "the extension phase".
+- **Reference snapshot (vendored).** A wire-faithful copy obtained via reflection
+  lives in [../contract/](../contract/), validated semantically against the proxy
+  source. It is a **design reference**, not the build input — the sharing mechanism
+  above remains **[OPEN]**.
 
 ---
 
@@ -164,6 +168,9 @@ this project:
 - [x] Platform `com.redhat.quarkus.platform` 3.27.3.redhat-00003 / Java 21;
   extension tooling pinned to core `3.27.3.redhat-00001` (§3.1).
 - [x] Code conventions from the proxy DESIGN §10 **ratified as binding** (§6).
+- [x] Reference `.proto` snapshot vendored in `contract/` (reflection-derived,
+  validated semantically against the proxy source); build-wiring still open
+  (§2, §7).
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
 - [ ] Everything in §7 remains **[OPEN]**.

@@ -45,6 +45,10 @@ registro de reflection para as classes gRPC/protobuf geradas, validação de con
   este projeto — publicar um artefato de contrato vs. referência direta vs. cópia
   vendorizada — é a **primeira decisão de design a resolver após o esqueleto**. O
   DESIGN do proxy explicitamente adiou isso para "a fase da extensão".
+- **Snapshot de referência (vendorizado).** Uma cópia fiel ao contrato, obtida via
+  reflection, está em [../contract/](../contract/), validada semanticamente contra
+  a fonte do proxy. É **referência de design**, não input de build — o mecanismo de
+  compartilhamento acima permanece **[OPEN]**.
 
 ---
 
@@ -171,6 +175,9 @@ projeto:
   ferramental de extensão fixado no core `3.27.3.redhat-00001` (§3.1).
 - [x] Convenções de código do DESIGN §10 do proxy **ratificadas como vinculantes**
   (§6).
+- [x] Snapshot de referência do `.proto` vendorizado em `contract/`
+  (derivado de reflection, validado semanticamente contra a fonte do proxy);
+  build-wiring ainda em aberto (§2, §7).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] Tudo na §7 permanece **[OPEN]**.
