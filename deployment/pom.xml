@@ -15,6 +15,11 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc-deployment</artifactId>
         </dependency>
+        <!-- Par -deployment do quarkus-tls-registry (regra do espelhamento). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-tls-registry-deployment</artifactId>
+        </dependency>
         <dependency>
             <groupId>io.github.claudineyns</groupId>
             <artifactId>redis-grpc-client</artifactId>
