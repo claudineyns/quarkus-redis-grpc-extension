@@ -174,7 +174,8 @@ as decisões numeradas abaixo dão a justificativa.)
 | **2d** | Credenciais — injeção central dos headers ACCESS_KEY/SECRET_KEY no helper de chamada compartilhado. |
 | **2e** | Config de native — `@BuildStep`s no deployment registrando as classes de mensagem para reflection (**execução** do build native **adiada**). |
 | **2f** | Testes (oficiais) — **cobertura mockada** por família + teste de fiação (commitados); validação **funcional** via **live tests efêmeros, gitignored** contra o gateway no CRC (gated por env, rodados por família). |
-| **2g** | Métricas (**adiado para o fim**) — Timer Micrometer opcional por RPC (tags `service`/`method`/`status`); a extensão registra, o consumidor expõe Prometheus. |
+| **2g** | Métricas — Timer Micrometer opcional por RPC (tags `service`/`method`/`status`); a extensão registra, o consumidor expõe Prometheus. |
+| **2h** | Logging — log de acesso enxuto no helper de chamada (`service`/`method`/`status`/`durationMs`, DEBUG) + lifecycle (DEBUG) + falhas inesperadas (WARN); JBoss Logging, toggle por nível de categoria; nunca segredos/valores. |
 
 1. **[DECIDIDO] Compartilhamento do contrato `.proto`** (§2, §4) — referência
    **vendorizada** em `contract/`, copiada para `runtime/src/main/proto` como input
@@ -260,6 +261,18 @@ as decisões numeradas abaixo dão a justificativa.)
    (`io.opentelemetry.api.metrics`): serviria só ao consumidor incomum "OTel sem
    Micrometer" e arrisca dupla contagem quando ambos ativos. Revisitar só se esse
    consumidor for real (o quarkus-opentelemetry também faz bridge Micrometer→OTel).
+14. **[DECIDIDO] Logging — 2h.** Um **log de acesso enxuto** no helper de chamada
+   (`GrpcInvoker`, o ponto único que já calcula as dims das métricas): por chamada em
+   **DEBUG** — `service` / `method` / `status` / `durationMs`; **lifecycle** (canal
+   criado/fechado: endpoint, TLS on/off, auth on/off — nunca segredos) em **DEBUG**;
+   falhas inesperadas em **WARN**. **JBoss Logging** (`org.jboss.logging`), categoria
+   `io.github.claudineyns.redis.grpc.client`, toggle pelo **nível de categoria** padrão
+   (sem config própria). **Segurança:** nunca logar segredos (ACCESS_KEY/SECRET_KEY)
+   nem valores. **Sem a chave Redis** (requests não têm interface comum — aditivo
+   depois). **Sem MDC/correlação** (evita context propagation no Mutiny; a correlação
+   vem do tracing do consumidor — aditivo depois). **Backend-agnóstico** como métricas:
+   a extensão só emite via JBoss Logging; o consumidor roteia (console/JSON/OTLP) — sem
+   código específico de OTel.
 
 ---
 
@@ -346,6 +359,9 @@ depois seria quebra de config, então fica deliberadamente adiado.
   `quarkus.redis-grpc-client.metrics.enabled` (§7, §10).
 - [x] **Propagação de erro** — invoker expõe status gRPC não-OK como
   `RedisGrpcException(code, name, message)` tipada (fiel §5.1); alimenta a tag status (§7).
+- [ ] **Logging (2h)** — **decidido** (log de acesso enxuto: service/method/status/durationMs
+  em DEBUG, JBoss Logging, toggle por nível de categoria, nunca segredos/valores; sem
+  chave/MDC); **implementação pendente** (§7, §14).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] **Tudo na §7 está decidido; a implementação (código) está pendente.**

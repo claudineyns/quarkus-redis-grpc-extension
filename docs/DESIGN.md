@@ -172,7 +172,8 @@ decisions below give the rationale.)
 | **2d** | Credentials — central ACCESS_KEY/SECRET_KEY header injection in the shared call helper. |
 | **2e** | Native config — deployment `@BuildStep`s registering the message classes for reflection (native build **execution deferred**). |
 | **2f** | Tests (official) — server-less **mock coverage** per family + the wiring test (committed); **functional** validation via **ephemeral, gitignored live tests** against the CRC gateway (env-gated, run per family). |
-| **2g** | Metrics (**deferred to the end**) — optional Micrometer `Timer` per RPC (tags `service`/`method`/`status`); the extension records, the consumer exposes Prometheus. |
+| **2g** | Metrics — optional Micrometer `Timer` per RPC (tags `service`/`method`/`status`); the extension records, the consumer exposes Prometheus. |
+| **2h** | Logging — lean access log in the shared call helper (`service`/`method`/`status`/`durationMs`, DEBUG) + lifecycle (DEBUG) + unexpected failures (WARN); JBoss Logging, toggled by category level; never secrets/values. |
 
 1. **[DECIDED] `.proto` contract sharing** (§2, §4) — **vendored** reference in
    `contract/`, copied to `runtime/src/main/proto` as the build input.
@@ -257,6 +258,18 @@ decisions below give the rationale.)
    instrumentation path: it would only serve the uncommon "OTel metrics without
    Micrometer" consumer and risks double-counting when both are active. Revisit only
    if such a consumer is real (quarkus-opentelemetry can also bridge Micrometer→OTel).
+14. **[DECIDED] Logging — 2h.** A **lean access log** in the shared call helper
+   (`GrpcInvoker`, the single call point that already computes the metrics dims): per
+   call at **DEBUG** — `service` / `method` / `status` / `durationMs`; **lifecycle**
+   (channel create/close: endpoint, TLS on/off, auth on/off — never secrets) at
+   **DEBUG**; unexpected failures at **WARN**. **JBoss Logging** (`org.jboss.logging`),
+   category `io.github.claudineyns.redis.grpc.client`, toggled by the standard log
+   **category level** (no custom config). **Security:** never log secrets
+   (ACCESS_KEY/SECRET_KEY) or values. **No Redis key** (requests have no common
+   interface — additive later). **No MDC/correlation** (avoids Mutiny context
+   propagation; correlation comes from the consumer's tracing — additive later).
+   **Backend-agnostic** like metrics: the extension only emits via JBoss Logging; the
+   consumer routes logs (console/JSON/OTLP) — no OTel-specific logging code.
 
 ---
 
@@ -339,6 +352,9 @@ be a breaking config change, so it is deferred deliberately.
   `quarkus.redis-grpc-client.metrics.enabled` toggle (§7, §10).
 - [x] **Error propagation** — invoker surfaces non-OK gRPC status as a typed
   `RedisGrpcException(code, name, message)` (faithful §5.1); feeds the status tag (§7).
+- [ ] **Logging (2h)** — **decided** (lean access log: service/method/status/durationMs
+  at DEBUG, JBoss Logging, category-level toggle, never secrets/values; no key/MDC);
+  **implementation pending** (§7, §14).
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
 - [ ] **All of §7 is decided; implementation (code) is pending.**
