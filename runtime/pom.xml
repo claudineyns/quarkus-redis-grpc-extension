@@ -15,11 +15,39 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
-        <!-- Esta extensão se constrói SOBRE a extensão quarkus-grpc: traz o
-             runtime gRPC (Vert.x) e o suporte aos stubs Mutiny gerados. -->
+        <!-- Client-only: NÃO usamos a extensão quarkus-grpc (que embute servidor).
+             quarkus-grpc-stubs traz o suporte de stubs Mutiny do lado cliente
+             (ClientCalls + transitivamente quarkus-grpc-api com MutinyStub/MutinyGrpc,
+             grpc-stub, grpc-protobuf, quarkus-mutiny). EXCLUÍMOS o quarkus-grpc-codegen
+             daqui: é ferramenta de build-time e arrasta quarkus-core-deployment para
+             o classpath de runtime (proibido numa extensão). -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-grpc</artifactId>
+            <artifactId>quarkus-grpc-stubs</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.quarkus</groupId>
+                    <artifactId>quarkus-grpc-codegen</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- O provider de codegen gRPC/Mutiny que o goal generate-code descobre.
+             Precisa estar no classpath normal (compile) para ser descoberto — em
+             'provided' NÃO é. Então:
+               - optional=true  -> NÃO vaza para as deps transitivas dos consumidores;
+               - excluímos quarkus-core-deployment -> mantém esse artefato -deployment
+                 fora do classpath de runtime (a verificação da extensão o proíbe;
+                 o próprio quarkus-maven-plugin fornece core-deployment no codegen). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-grpc-codegen</artifactId>
+            <optional>true</optional>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.quarkus</groupId>
+                    <artifactId>quarkus-core-deployment</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

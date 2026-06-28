@@ -15,10 +15,18 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc-deployment</artifactId>
         </dependency>
-        <!-- Lado deployment da extensão quarkus-grpc, sobre a qual construímos. -->
+        <!-- Regra das extensões Quarkus: para cada extensão no classpath de runtime
+             (trazidas transitivamente por quarkus-grpc-stubs), o deployment precisa
+             do -deployment correspondente. Estes dois topos cobrem a árvore inteira
+             (grpc-common -> vertx -> netty/virtual-threads; mutiny -> context-propagation).
+             NB: grpc-common-deployment é o lado COMUM — não traz o servidor gRPC. -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-grpc-deployment</artifactId>
+            <artifactId>quarkus-grpc-common-deployment</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-mutiny-deployment</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.claudineyns</groupId>
