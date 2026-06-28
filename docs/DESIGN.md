@@ -352,9 +352,10 @@ be a breaking config change, so it is deferred deliberately.
   `quarkus.redis-grpc-client.metrics.enabled` toggle (§7, §10).
 - [x] **Error propagation** — invoker surfaces non-OK gRPC status as a typed
   `RedisGrpcException(code, name, message)` (faithful §5.1); feeds the status tag (§7).
-- [ ] **Logging (2h)** — **decided** (lean access log: service/method/status/durationMs
-  at DEBUG, JBoss Logging, category-level toggle, never secrets/values; no key/MDC);
-  **implementation pending** (§7, §14).
+- [x] **Logging (2h)** — **DONE**: lean access log in the invoker
+  (service/method/status/durationMs at DEBUG) + lifecycle (DEBUG) + transport
+  failures (WARN); JBoss Logging, category-level toggle, never secrets/values; no
+  key/MDC (§7, §14). Validated end-to-end (DEBUG) against CRC.
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
 - [ ] **All of §7 is decided; implementation (code) is pending.**

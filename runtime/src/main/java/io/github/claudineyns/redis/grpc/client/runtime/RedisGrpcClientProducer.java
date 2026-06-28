@@ -3,6 +3,8 @@ package io.github.claudineyns.redis.grpc.client.runtime;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import org.jboss.logging.Logger;
+
 import io.github.claudineyns.redis.grpc.client.RedisGrpcClient;
 import io.quarkus.tls.TlsConfiguration;
 import io.quarkus.tls.TlsConfigurationRegistry;
@@ -26,6 +28,8 @@ import jakarta.inject.Inject;
  */
 @ApplicationScoped
 public class RedisGrpcClientProducer {
+
+    private static final Logger LOG = Logger.getLogger(RedisGrpcClientProducer.class);
 
     @Inject
     Vertx vertx;
@@ -55,6 +59,10 @@ public class RedisGrpcClientProducer {
                 "quarkus.redis-grpc-client.host is required to use the redis-grpc client"));
         final SocketAddress address = SocketAddress.inetSocketAddress(config.port(), host);
         this.grpcClient = GrpcClient.client(vertx, buildHttpOptions());
+        // Lifecycle (2h): nunca loga segredos — só on/off de TLS/auth.
+        LOG.debugf("redis-grpc-client -> %s:%d (tls=%s, auth=%s)", host, config.port(),
+                config.tlsConfigurationName().orElse("plaintext"),
+                config.auth().accessKey().isPresent() && config.auth().secretKey().isPresent() ? "on" : "off");
         return new RedisGrpcClient(
                 new GrpcInvoker(grpcClient, address, buildHeaderDecorator(), selectMetrics()));
     }
@@ -117,6 +125,7 @@ public class RedisGrpcClientProducer {
     void close() {
         if (grpcClient != null) {
             grpcClient.close();
+            LOG.debug("redis-grpc-client channel closed");
         }
     }
 }

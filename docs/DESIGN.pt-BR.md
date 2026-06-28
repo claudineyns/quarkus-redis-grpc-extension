@@ -359,9 +359,10 @@ depois seria quebra de config, então fica deliberadamente adiado.
   `quarkus.redis-grpc-client.metrics.enabled` (§7, §10).
 - [x] **Propagação de erro** — invoker expõe status gRPC não-OK como
   `RedisGrpcException(code, name, message)` tipada (fiel §5.1); alimenta a tag status (§7).
-- [ ] **Logging (2h)** — **decidido** (log de acesso enxuto: service/method/status/durationMs
-  em DEBUG, JBoss Logging, toggle por nível de categoria, nunca segredos/valores; sem
-  chave/MDC); **implementação pendente** (§7, §14).
+- [x] **Logging (2h)** — **FEITO**: log de acesso enxuto no invoker
+  (service/method/status/durationMs em DEBUG) + lifecycle (DEBUG) + falhas de
+  transporte (WARN); JBoss Logging, toggle por nível de categoria, nunca
+  segredos/valores; sem chave/MDC (§7, §14). Validado end-to-end (DEBUG) no CRC.
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] **Tudo na §7 está decidido; a implementação (código) está pendente.**

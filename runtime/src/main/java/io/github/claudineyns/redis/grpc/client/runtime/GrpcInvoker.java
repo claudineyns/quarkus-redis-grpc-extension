@@ -1,6 +1,9 @@
 package io.github.claudineyns.redis.grpc.client.runtime;
 
+import java.util.Locale;
 import java.util.function.Consumer;
+
+import org.jboss.logging.Logger;
 
 import io.github.claudineyns.redis.grpc.client.RedisGrpcException;
 import io.smallrye.mutiny.Uni;
@@ -23,9 +26,14 @@ import io.vertx.grpc.common.ServiceMethod;
  *       status gRPC), em vez do erro cru do Vert.x.
  *   <li><strong>Métricas (2g):</strong> mede a duração e registra service/method/status
  *       no {@link RedisGrpcMetrics} (no-op se desligado/sem Micrometer).
+ *   <li><strong>Logging (2h):</strong> log de acesso por chamada em DEBUG
+ *       (service/method/status/durationMs); falhas inesperadas (transporte) em WARN.
+ *       Nunca loga segredos nem valores.
  * </ul>
  */
 public final class GrpcInvoker {
+
+    private static final Logger LOG = Logger.getLogger(GrpcInvoker.class);
 
     private final GrpcClient client;
     private final SocketAddress address;
@@ -65,8 +73,12 @@ public final class GrpcInvoker {
                                 new RedisGrpcException(status.code, status.name(), response.statusMessage()));
                     }))
                     .toCompletionStage())
-                    .onItemOrFailure().invoke((item, failure) ->
-                            metrics.record(service, methodName, statusOf(failure), System.nanoTime() - start));
+                    .onItemOrFailure().invoke((item, failure) -> {
+                        final long durationNanos = System.nanoTime() - start;
+                        final String status = statusOf(failure);
+                        metrics.record(service, methodName, status, durationNanos); // 2g
+                        logCall(service, methodName, status, durationNanos, failure); // 2h
+                    });
         });
     }
 
@@ -79,5 +91,22 @@ public final class GrpcInvoker {
         }
         // Falhas de transporte/timeout (sem status gRPC do servidor).
         return "ERROR";
+    }
+
+    /**
+     * Log de acesso (2h): sucesso e erros gRPC esperados (status do servidor) em
+     * DEBUG; falhas inesperadas (transporte/timeout) em WARN. Sem segredos/valores.
+     */
+    private static void logCall(final String service, final String method, final String status,
+            final long durationNanos, final Throwable failure) {
+        // Locale.ROOT: duração estável (ponto decimal) independente do locale do host.
+        final String durationMs = String.format(Locale.ROOT, "%.1f", durationNanos / 1_000_000.0);
+        if (failure != null && !(failure instanceof RedisGrpcException)) {
+            LOG.warnf(failure, "%s/%s failed (%s) in %s ms", service, method, status, durationMs);
+            return;
+        }
+        if (LOG.isDebugEnabled()) {
+            LOG.debugf("%s/%s -> %s in %s ms", service, method, status, durationMs);
+        }
     }
 }
