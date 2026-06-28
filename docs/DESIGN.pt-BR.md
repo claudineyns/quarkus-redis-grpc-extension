@@ -173,7 +173,8 @@ as decisões numeradas abaixo dão a justificativa.)
 | **2c** | Canal + clientes — `GrpcClient` do `vertx-grpc-client` via producer CDI (`Vertx` gerenciado + TLS Registry); o agregador `RedisGrpcClient` + seus quatro clientes de família (Nível 1); `AdditionalBeanBuildItem`. |
 | **2d** | Credenciais — injeção central dos headers ACCESS_KEY/SECRET_KEY no helper de chamada compartilhado. |
 | **2e** | Config de native — `@BuildStep`s no deployment registrando as classes de mensagem para reflection (**execução** do build native **adiada**). |
-| **2f** | Testes — re-adicionar o módulo `integration-tests` (fake server Vert.x hermético + testes JVM/native + teste opt-in ao vivo no CRC). |
+| **2f** | Testes (oficiais) — **cobertura mockada** por família + teste de fiação (commitados); validação **funcional** via **live tests efêmeros, gitignored** contra o gateway no CRC (gated por env, rodados por família). |
+| **2g** | Métricas (**adiado para o fim**) — Timer Micrometer opcional por RPC (tags `service`/`method`/`status`); a extensão registra, o consumidor expõe Prometheus. |
 
 1. **[DECIDIDO] Compartilhamento do contrato `.proto`** (§2, §4) — referência
    **vendorizada** em `contract/`, copiada para `runtime/src/main/proto` como input
@@ -210,10 +211,21 @@ as decisões numeradas abaixo dão a justificativa.)
    mensagem para reflection, + o que o `vertx-grpc-client` exigir). O binário native
    é construído pelo **consumidor** (ou pelo nosso módulo `integration-tests`, que faz
    o papel dele). **Execução do build native adiada.**
-9. **[DECIDIDO] Testes — 2f** — re-adicionar o módulo `integration-tests` (app "como
-   consumidor"): um **fake server** Vert.x gRPC hermético no teste + `@QuarkusTest`
-   (JVM) e `@QuarkusIntegrationTest` (native — execução adiada), mais um teste
-   **opt-in** ao vivo contra o gateway no CRC.
+9. **[DECIDIDO] Testes — 2f** — **testes oficiais são sem servidor, focados em
+   cobertura via mocks**: um `GrpcInvoker` mockado (`MockGrpc`); testes por família
+   exercitam todo RPC (delegação + init dos descritores), mais o teste de fiação. A
+   **correção funcional** é garantida por **live tests efêmeros, gitignored** contra
+   o gateway no CRC (gated por `REDIS_GRPC_ACCESS_KEY`, rodados por família, removidos
+   no fim). *(Substitui o plano anterior de fake server hermético.)* O módulo
+   `integration-tests` fica reservado à validação native (2e, adiada).
+10. **[DECIDIDO] Métricas — 2g (adiado para o fim).** Integração Micrometer
+   **opcional**: uma interface neutra `RedisGrpcMetrics` (default NOOP) instrumentada
+   no helper de chamada; um bean `MicrometerRedisGrpcMetrics` registrado **só quando
+   `Capability.MICROMETER` está presente** (`quarkus-micrometer` como dep `optional`).
+   Um **`Timer "redis.grpc.client.call"`** por RPC, tags `service`/`method`/`status`
+   (nunca a chave Redis — cardinalidade). Toggle
+   `quarkus.redis-grpc-client.metrics.enabled` (default true). A extensão **registra**;
+   o consumidor adiciona o registry Prometheus e expõe o endpoint.
 
 ---
 
@@ -292,8 +304,11 @@ depois seria quebra de config, então fica deliberadamente adiado.
 - [x] **Credenciais (2d)** — injeção de header central no helper compartilhado (§7).
 - [x] **Native (2e)** — build steps no deployment (reflection nas mensagens); a
   extensão contribui config, o consumidor builda native; **execução adiada** (§7).
-- [x] **Testes (2f)** — módulo `integration-tests`: fake server Vert.x hermético +
-  testes JVM/native + teste opt-in ao vivo no CRC (§7).
+- [x] **Testes (2f)** — oficiais: **cobertura mockada** por família + teste de
+  fiação; funcional: **live tests efêmeros, gitignored** contra o gateway no CRC;
+  integration-tests reservado ao native (§7).
+- [x] **Métricas (2g)** — **decidido** (Timer Micrometer opcional por RPC, tags
+  service/method/status); **implementação adiada para o fim** (§7).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] **Tudo na §7 está decidido; a implementação (código) está pendente.**

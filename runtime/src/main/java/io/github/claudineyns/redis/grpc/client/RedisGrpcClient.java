@@ -20,11 +20,13 @@ public final class RedisGrpcClient {
     private final RedisStringClient string;
     private final RedisHashClient hash;
     private final RedisSetClient set;
+    private final RedisKeyClient key;
 
     public RedisGrpcClient(final GrpcInvoker invoker) {
         this.string = new RedisStringClient(invoker);
         this.hash = new RedisHashClient(invoker);
         this.set = new RedisSetClient(invoker);
+        this.key = new RedisKeyClient(invoker);
     }
 
     /** Família KEY/VALUE ({@code StringService}). */
@@ -40,5 +42,10 @@ public final class RedisGrpcClient {
     /** Família SET ({@code SetService}). */
     public RedisSetClient set() {
         return set;
+    }
+
+    /** Família KEY genérica ({@code KeyService}). */
+    public RedisKeyClient key() {
+        return key;
     }
 }

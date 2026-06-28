@@ -171,7 +171,8 @@ decisions below give the rationale.)
 | **2c** | Channel + clients — `vertx-grpc-client` `GrpcClient` via a CDI producer (managed `Vertx` + TLS Registry); the `RedisGrpcClient` aggregator + its four family clients (Level 1); `AdditionalBeanBuildItem`. |
 | **2d** | Credentials — central ACCESS_KEY/SECRET_KEY header injection in the shared call helper. |
 | **2e** | Native config — deployment `@BuildStep`s registering the message classes for reflection (native build **execution deferred**). |
-| **2f** | Tests — re-add the `integration-tests` module (hermetic Vert.x fake server + JVM/native tests + opt-in CRC live test). |
+| **2f** | Tests (official) — server-less **mock coverage** per family + the wiring test (committed); **functional** validation via **ephemeral, gitignored live tests** against the CRC gateway (env-gated, run per family). |
+| **2g** | Metrics (**deferred to the end**) — optional Micrometer `Timer` per RPC (tags `service`/`method`/`status`); the extension records, the consumer exposes Prometheus. |
 
 1. **[DECIDED] `.proto` contract sharing** (§2, §4) — **vendored** reference in
    `contract/`, copied to `runtime/src/main/proto` as the build input.
@@ -207,10 +208,21 @@ decisions below give the rationale.)
    message classes for reflection, + whatever `vertx-grpc-client` needs). The native
    binary is built by the **consumer** (or by our `integration-tests` module, which
    stands in as one). **Native build execution is deferred.**
-9. **[DECIDED] Tests — 2f** — re-add the `integration-tests` module (consumer-like
-   app): a hermetic in-test Vert.x gRPC **fake server** + `@QuarkusTest` (JVM) and
-   `@QuarkusIntegrationTest` (native — execution deferred), plus an **opt-in** live
-   test against the CRC gateway.
+9. **[DECIDED] Tests — 2f** — **official tests are server-less, coverage-focused via
+   mocks**: a mocked `GrpcInvoker` (`MockGrpc`); per-family tests exercise every RPC
+   (delegation + descriptor init), plus the wiring test. **Functional** correctness
+   is guaranteed by **ephemeral, gitignored live tests** against the CRC gateway
+   (env-gated via `REDIS_GRPC_ACCESS_KEY`, run per family, removed at the end).
+   *(Replaces the earlier hermetic fake-server plan.)* The `integration-tests`
+   module is reserved for native validation (2e, deferred).
+10. **[DECIDED] Metrics — 2g (deferred to the end).** **Optional** Micrometer
+   integration: a neutral `RedisGrpcMetrics` interface (NOOP default) instrumented in
+   the shared call helper; a `MicrometerRedisGrpcMetrics` bean registered **only when
+   `Capability.MICROMETER` is present** (`quarkus-micrometer` as an `optional` dep).
+   One **`Timer "redis.grpc.client.call"`** per RPC, tags `service`/`method`/`status`
+   (never the Redis key — cardinality). Toggle
+   `quarkus.redis-grpc-client.metrics.enabled` (default true). The extension
+   **records**; the consumer adds the Prometheus registry and exposes the endpoint.
 
 ---
 
@@ -285,8 +297,11 @@ be a breaking config change, so it is deferred deliberately.
 - [x] **Credentials (2d)** — central header injection in the shared call helper (§7).
 - [x] **Native (2e)** — deployment build steps (reflection on messages); extension
   contributes config, consumer builds native; **native execution deferred** (§7).
-- [x] **Tests (2f)** — `integration-tests` module: hermetic Vert.x fake server +
-  JVM/native tests + opt-in CRC live test (§7).
+- [x] **Tests (2f)** — official: server-less **mock coverage** per family + wiring
+  test; functional: **ephemeral, gitignored live tests** vs the CRC gateway;
+  integration-tests reserved for native (§7).
+- [x] **Metrics (2g)** — **decided** (optional Micrometer `Timer` per RPC, tags
+  service/method/status); **implementation deferred to the end** (§7).
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
 - [ ] **All of §7 is decided; implementation (code) is pending.**
