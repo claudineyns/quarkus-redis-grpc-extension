@@ -156,27 +156,76 @@ projeto:
 
 ---
 
-## 7. Decisões em aberto (resolver a seguir, em ordem)
+## 7. Decisões de implementação (status, em ordem)
 
-1. **[OPEN] Compartilhamento do contrato `.proto`** (§2) — artefato vs. referência
-   direta vs. vendorizado; e onde roda a geração de stubs (este projeto vs. app
-   consumidora).
-2. **[OPEN] Geração de stubs** — usar a geração de código do `quarkus-grpc` a
-   partir do `.proto`, ou consumir stubs pré-gerados; stubs Mutiny reativos
-   assumidos.
-3. **[OPEN] Superfície pública do cliente** — stubs gRPC crus por família vs. uma
-   fachada fina de mais alto nível; como ausência/nil e status gRPC voltam ao
-   chamador.
-4. **[OPEN] Superfície de configuração** — chaves `@ConfigMapping` para endpoint,
-   TLS, headers e valores de ACCESS_KEY/SECRET_KEY; defaults de dev-mode.
-5. **[OPEN] Injeção de credencial** — interceptor que anexa a metadata
-   ACCESS_KEY/SECRET_KEY em toda chamada.
-6. **[OPEN] Native image** — build steps de registro de reflection/proxy e um
+1. **[DECIDIDO] Compartilhamento do contrato `.proto`** (§2, §4) — referência
+   **vendorizada** em `contract/`, copiada para `runtime/src/main/proto` como input
+   de build. Publicar um artefato de contrato segue possível como evolução futura.
+2. **[DECIDIDO] Geração de stubs — 2a** — **só cliente**: gerar os stubs Mutiny do
+   `.proto` vendorizado via goal `generate-code`, dependendo de `quarkus-grpc-stubs`
+   (sem servidor) e de `quarkus-grpc-codegen` como provider **`optional`, só de
+   build** (excluindo `quarkus-core-deployment`). Sem feature `grpc-server`; runtime
+   limpo para consumidores.
+3. **[DECIDIDO] Superfície pública do cliente** — expor os **stubs Mutiny por
+   família diretamente** (injetáveis), sem fachada por ora.
+4. **[DECIDIDO] Superfície de configuração — 2b** — ver §8.
+5. **[OPEN] Transporte do canal & fiação — 2c** — um `@Recorder` constrói o canal
+   `io.grpc`; transporte inclinado a **Vert.x** (integração nativa com o TLS
+   Registry); producers CDI expõem os stubs via build steps.
+6. **[OPEN] Injeção de credencial — 2d** — um `ClientInterceptor` anexa a metadata
+   ACCESS_KEY/SECRET_KEY quando ambas estão configuradas.
+7. **[OPEN] Native image — 2e** — build steps de registro (reflection/proxy) e um
    teste de integração nativo.
 
 ---
 
-## 8. Decisões (tracker)
+## 8. Superfície de configuração do cliente (decidida — 2b)
+
+`@ConfigMapping(prefix = "quarkus.redis-grpc-client")`, fase **RUN_TIME**, um
+**cliente único default** (chaves planas). Migrar para multi-cliente (map nomeado)
+depois seria quebra de config, então fica deliberadamente adiado.
+
+> **Escolha do namespace (decidida):** o prefixo `quarkus.` é usado de propósito.
+> Como extensão Quarkus, registramos um config root ali — legítimo mesmo para uma
+> extensão privada/não-oficial — o que dá reconhecimento de chaves + validação de
+> typo, a referência de config gerada e a Dev UI. A orientação "não use `quarkus.`"
+> mira config de *aplicação* (ex.: `proxy.auth.*` do proxy), não config root de
+> *extensão*. Um prefixo corporativo próprio foi considerado e descartado (perde
+> esse tooling).
+
+| Chave | Tipo | Default | Notas |
+|---|---|---|---|
+| `host` | String | — (obrigatório) | host do gateway |
+| `port` | int | `443` | porta do gateway |
+| `tls-configuration-name` | Optional&lt;String&gt; | — | nome de um `quarkus.tls.<nome>` no **Quarkus TLS Registry** |
+| `authority` | Optional&lt;String&gt; | — | override SNI/authority (CN do cert folha = host da Route) |
+| `auth.access-key` | Optional&lt;String&gt; | — | **segredo**, nunca logado |
+| `auth.secret-key` | Optional&lt;String&gt; | — | **segredo**, nunca logado |
+| `auth.access-key-header` | String | `x-grpc-access-key` | nome de header configurável no servidor |
+| `auth.secret-key-header` | String | `x-grpc-secret-key` | nome de header configurável no servidor |
+
+- **Semântica de TLS:** `tls-configuration-name` setado → TLS usando essa config
+  nomeada do registry (CA/truststore lá, recarregável); não setado → a config TLS
+  **default** do registry se existir, senão **plaintext** (dev). Produção exige uma
+  config TLS.
+- **Semântica de auth:** o interceptor (2d) anexa ambos os headers **só se ambos**
+  access-key e secret-key estiverem presentes; caso contrário chama sem credenciais
+  (o servidor responde `UNAUTHENTICATED` se as exigir).
+- **Fase RUN_TIME:** endpoint, credenciais e TLS vêm de env/secret — nunca assados
+  no build (princípio "config-driven, agnóstico ao ambiente" do proxy).
+
+**Implicações travadas por esta superfície:**
+
+- **Nova dependência** `quarkus-tls-registry` (runtime) ⇒ pela regra do espelhamento
+  runtime↔deployment (aprendida no 2a), `quarkus-tls-registry-deployment` no
+  `deployment`.
+- **Inclina o 2c para transporte Vert.x** (o TLS Registry integra nativamente com
+  as opções Vert.x; grpc-netty exigiria converter a config do registry num
+  `SslContext` Netty).
+
+---
+
+## 9. Decisões (tracker)
 
 - [x] O lado cliente é uma **extensão Quarkus de verdade** (split runtime +
   deployment), não uma lib simples — herdado do DESIGN §3.1 do proxy.
@@ -190,8 +239,14 @@ projeto:
 - [x] Convenções de código do DESIGN §10 do proxy **ratificadas como vinculantes**
   (§6).
 - [x] Snapshot de referência do `.proto` vendorizado em `contract/`
-  (derivado de reflection, validado semanticamente contra a fonte do proxy);
-  build-wiring ainda em aberto (§2, §7).
+  (derivado de reflection, validado semanticamente contra a fonte do proxy) e usado
+  como input de build em `runtime/src/main/proto` (§2, §4, §7).
+- [x] **Geração de stubs (2a)** — codegen Mutiny só-cliente via `quarkus-grpc-stubs`
+  + `quarkus-grpc-codegen` `optional`; sem servidor (§7).
+- [x] **Superfície pública** — stubs Mutiny por família diretamente, sem fachada (§7).
+- [x] **Superfície de configuração (2b)** — cliente único default sob
+  `quarkus.redis-grpc-client.*`, RUN_TIME, TLS via Quarkus TLS Registry (§8).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
-- [ ] Tudo na §7 permanece **[OPEN]**.
+- [ ] Em aberto: canal/transporte (2c), injeção de credencial (2d), native image
+  (2e) — ver §7.

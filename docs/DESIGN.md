@@ -153,24 +153,73 @@ this project:
 
 ---
 
-## 7. Open decisions (to settle next, in order)
+## 7. Implementation decisions (status, in order)
 
-1. **[OPEN] `.proto` contract sharing** (§2) — artifact vs. direct reference vs.
-   vendored; and where stub generation runs (this project vs. consuming app).
-2. **[OPEN] Stub generation** — use `quarkus-grpc` code generation from the
-   `.proto`, or consume pre-generated stubs; reactive Mutiny stubs assumed.
-3. **[OPEN] Public client surface** — raw per-family gRPC stubs vs. a thin
-   higher-level facade; how absence/nil and gRPC status map back to the caller.
-4. **[OPEN] Configuration surface** — `@ConfigMapping` keys for endpoint, TLS,
-   ACCESS_KEY/SECRET_KEY headers and values; dev-mode defaults.
-5. **[OPEN] Credential injection** — interceptor that attaches the
-   ACCESS_KEY/SECRET_KEY metadata on every call.
-6. **[OPEN] Native image** — reflection/proxy registration build steps and a
+1. **[DECIDED] `.proto` contract sharing** (§2, §4) — **vendored** reference in
+   `contract/`, copied to `runtime/src/main/proto` as the build input. A published
+   contract artifact remains a possible later evolution.
+2. **[DECIDED] Stub generation — 2a** — **client-only**: generate the Mutiny stubs
+   from the vendored `.proto` via the `generate-code` goal, depending on
+   `quarkus-grpc-stubs` (no server) and `quarkus-grpc-codegen` as an **`optional`,
+   build-only** provider (excluding `quarkus-core-deployment`). No `grpc-server`
+   feature; consumer-facing runtime stays clean.
+3. **[DECIDED] Public client surface** — expose the per-family **Mutiny stubs
+   directly** (injectable), no higher-level facade for now.
+4. **[DECIDED] Configuration surface — 2b** — see §8.
+5. **[OPEN] Channel transport & wiring — 2c** — a `@Recorder` builds the `io.grpc`
+   channel; transport leans **Vert.x** (native TLS Registry integration); CDI
+   producers expose the stubs via build steps.
+6. **[OPEN] Credential injection — 2d** — a `ClientInterceptor` attaches the
+   ACCESS_KEY/SECRET_KEY metadata when both are configured.
+7. **[OPEN] Native image — 2e** — reflection/proxy registration build steps and a
    native integration test.
 
 ---
 
-## 8. Decisions (tracker)
+## 8. Client configuration surface (decided — 2b)
+
+`@ConfigMapping(prefix = "quarkus.redis-grpc-client")`, **RUN_TIME** phase, a
+**single default client** (flat keys). Going multi-client (named map) later would
+be a breaking config change, so it is deferred deliberately.
+
+> **Namespace choice (decided):** the `quarkus.` prefix is used on purpose. As a
+> Quarkus extension we register a config root there — legitimate even for a
+> private/unofficial extension — which buys key recognition + typo validation, the
+> generated config reference and Dev UI. The "don't use `quarkus.`" guidance targets
+> *application* config (e.g. the proxy's `proxy.auth.*`), not *extension* config
+> roots. A custom corporate prefix was considered and rejected (loses that tooling).
+
+| Key | Type | Default | Notes |
+|---|---|---|---|
+| `host` | String | — (required) | gateway host |
+| `port` | int | `443` | gateway port |
+| `tls-configuration-name` | Optional&lt;String&gt; | — | name of a `quarkus.tls.<name>` config in the **Quarkus TLS Registry** |
+| `authority` | Optional&lt;String&gt; | — | SNI/authority override (the leaf cert CN = route host) |
+| `auth.access-key` | Optional&lt;String&gt; | — | **secret**, never logged |
+| `auth.secret-key` | Optional&lt;String&gt; | — | **secret**, never logged |
+| `auth.access-key-header` | String | `x-grpc-access-key` | server-configurable header name |
+| `auth.secret-key-header` | String | `x-grpc-secret-key` | server-configurable header name |
+
+- **TLS semantics:** `tls-configuration-name` set → TLS using that named registry
+  config (CA/truststore there, reloadable); unset → the registry's **default** TLS
+  config if present, else **plaintext** (dev). Production requires a TLS config.
+- **Auth semantics:** the interceptor (2d) attaches both headers **only if both**
+  access-key and secret-key are present; otherwise it calls without credentials
+  (the server answers `UNAUTHENTICATED` if it requires them).
+- **Phase RUN_TIME:** endpoint, credentials and TLS come from env/secret — never
+  baked at build (the proxy's "config-driven, environment-agnostic" principle).
+
+**Implications locked by this surface:**
+
+- **New dependency** `quarkus-tls-registry` (runtime) ⇒ by the runtime↔deployment
+  mirror rule (learned in 2a), `quarkus-tls-registry-deployment` in `deployment`.
+- **Nudges 2c toward a Vert.x transport** (the TLS Registry integrates natively
+  with Vert.x options; grpc-netty would need converting the registry config to a
+  Netty `SslContext`).
+
+---
+
+## 9. Decisions (tracker)
 
 - [x] Client side is a **proper Quarkus extension** (runtime + deployment split),
   not a plain library — inherited from the proxy DESIGN §3.1.
@@ -183,8 +232,14 @@ this project:
   *(Superseded the initial Red Hat 3.27.3 baseline.)*
 - [x] Code conventions from the proxy DESIGN §10 **ratified as binding** (§6).
 - [x] Reference `.proto` snapshot vendored in `contract/` (reflection-derived,
-  validated semantically against the proxy source); build-wiring still open
-  (§2, §7).
+  validated semantically against the proxy source) and used as the build input
+  in `runtime/src/main/proto` (§2, §4, §7).
+- [x] **Stub generation (2a)** — client-only Mutiny codegen via `quarkus-grpc-stubs`
+  + `optional` `quarkus-grpc-codegen`; no server (§7).
+- [x] **Public surface** — per-family Mutiny stubs directly, no facade (§7).
+- [x] **Configuration surface (2b)** — single default client under
+  `quarkus.redis-grpc-client.*`, RUN_TIME, TLS via the Quarkus TLS Registry (§8).
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
-- [ ] Everything in §7 remains **[OPEN]**.
+- [ ] Open: channel/transport (2c), credential injection (2d), native image (2e)
+  — see §7.
