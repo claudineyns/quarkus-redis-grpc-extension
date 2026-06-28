@@ -1,6 +1,7 @@
 package io.github.claudineyns.redis.grpc.client;
 
 import io.github.claudineyns.redis.grpc.client.runtime.GrpcInvoker;
+import io.github.claudineyns.redis.grpc.client.runtime.ServiceMethods;
 import io.github.claudineyns.redis.grpc.v1.AppendRequest;
 import io.github.claudineyns.redis.grpc.v1.CounterValue;
 import io.github.claudineyns.redis.grpc.v1.DecrByRequest;
@@ -20,8 +21,6 @@ import io.github.claudineyns.redis.grpc.v1.SetRequest;
 import io.github.claudineyns.redis.grpc.v1.SetResponse;
 import io.github.claudineyns.redis.grpc.v1.StrlenRequest;
 import io.smallrye.mutiny.Uni;
-import io.vertx.grpc.common.GrpcMessageDecoder;
-import io.vertx.grpc.common.GrpcMessageEncoder;
 import io.vertx.grpc.common.ServiceMethod;
 import io.vertx.grpc.common.ServiceName;
 
@@ -39,18 +38,18 @@ public final class RedisStringClient {
 
     private final GrpcInvoker invoker;
 
-    private final ServiceMethod<GetResponse, GetRequest> get = method("Get", GetResponse.parser());
-    private final ServiceMethod<GetResponse, GetExRequest> getEx = method("GetEx", GetResponse.parser());
-    private final ServiceMethod<GetResponse, GetDelRequest> getDel = method("GetDel", GetResponse.parser());
-    private final ServiceMethod<SetResponse, SetRequest> set = method("Set", SetResponse.parser());
-    private final ServiceMethod<MSetResponse, MSetRequest> mset = method("MSet", MSetResponse.parser());
-    private final ServiceMethod<MGetResponse, MGetRequest> mget = method("MGet", MGetResponse.parser());
-    private final ServiceMethod<CounterValue, IncrRequest> incr = method("Incr", CounterValue.parser());
-    private final ServiceMethod<CounterValue, IncrByRequest> incrBy = method("IncrBy", CounterValue.parser());
-    private final ServiceMethod<CounterValue, DecrRequest> decr = method("Decr", CounterValue.parser());
-    private final ServiceMethod<CounterValue, DecrByRequest> decrBy = method("DecrBy", CounterValue.parser());
-    private final ServiceMethod<LengthValue, AppendRequest> append = method("Append", LengthValue.parser());
-    private final ServiceMethod<LengthValue, StrlenRequest> strlen = method("Strlen", LengthValue.parser());
+    private final ServiceMethod<GetResponse, GetRequest> get = ServiceMethods.unary(SERVICE, "Get", GetResponse.parser());
+    private final ServiceMethod<GetResponse, GetExRequest> getEx = ServiceMethods.unary(SERVICE, "GetEx", GetResponse.parser());
+    private final ServiceMethod<GetResponse, GetDelRequest> getDel = ServiceMethods.unary(SERVICE, "GetDel", GetResponse.parser());
+    private final ServiceMethod<SetResponse, SetRequest> set = ServiceMethods.unary(SERVICE, "Set", SetResponse.parser());
+    private final ServiceMethod<MSetResponse, MSetRequest> mset = ServiceMethods.unary(SERVICE, "MSet", MSetResponse.parser());
+    private final ServiceMethod<MGetResponse, MGetRequest> mget = ServiceMethods.unary(SERVICE, "MGet", MGetResponse.parser());
+    private final ServiceMethod<CounterValue, IncrRequest> incr = ServiceMethods.unary(SERVICE, "Incr", CounterValue.parser());
+    private final ServiceMethod<CounterValue, IncrByRequest> incrBy = ServiceMethods.unary(SERVICE, "IncrBy", CounterValue.parser());
+    private final ServiceMethod<CounterValue, DecrRequest> decr = ServiceMethods.unary(SERVICE, "Decr", CounterValue.parser());
+    private final ServiceMethod<CounterValue, DecrByRequest> decrBy = ServiceMethods.unary(SERVICE, "DecrBy", CounterValue.parser());
+    private final ServiceMethod<LengthValue, AppendRequest> append = ServiceMethods.unary(SERVICE, "Append", LengthValue.parser());
+    private final ServiceMethod<LengthValue, StrlenRequest> strlen = ServiceMethods.unary(SERVICE, "Strlen", LengthValue.parser());
 
     public RedisStringClient(final GrpcInvoker invoker) {
         this.invoker = invoker;
@@ -102,16 +101,5 @@ public final class RedisStringClient {
 
     public Uni<LengthValue> strlen(final StrlenRequest request) {
         return invoker.call(strlen, request);
-    }
-
-    /**
-     * Fábrica de descritor de método cliente: encoder protobuf genérico para o
-     * request, decoder a partir do {@code parser()} da mensagem de resposta.
-     */
-    private static <Req extends com.google.protobuf.MessageLite, Resp> ServiceMethod<Resp, Req> method(
-            final String name, final com.google.protobuf.Parser<Resp> responseParser) {
-        return ServiceMethod.client(SERVICE, name,
-                GrpcMessageEncoder.encoder(),
-                GrpcMessageDecoder.decoder(responseParser));
     }
 }

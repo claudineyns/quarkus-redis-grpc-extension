@@ -18,13 +18,20 @@ import io.github.claudineyns.redis.grpc.client.runtime.GrpcInvoker;
 public final class RedisGrpcClient {
 
     private final RedisStringClient string;
+    private final RedisHashClient hash;
 
     public RedisGrpcClient(final GrpcInvoker invoker) {
         this.string = new RedisStringClient(invoker);
+        this.hash = new RedisHashClient(invoker);
     }
 
     /** Família KEY/VALUE ({@code StringService}). */
     public RedisStringClient string() {
         return string;
+    }
+
+    /** Família KEY/HASH ({@code HashService}). */
+    public RedisHashClient hash() {
+        return hash;
     }
 }
