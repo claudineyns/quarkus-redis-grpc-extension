@@ -103,27 +103,28 @@ redis-grpc-client-parent        (root pom — aggregator, dependencyManagement, 
   `io.github.claudineyns.redis.grpc.client`; version `0.1.0-SNAPSHOT`
   (early stage, distinct from the proxy's own versioning).
 - **Generated via** the official `quarkus-maven-plugin:create-extension` generator,
-  then pruned to the runtime + deployment pair and aligned to the Red Hat platform.
-- **Not included yet:** the generator's `integration-tests` module was dropped
-  until there is real client behavior to exercise; it will be re-added with the
-  first vertical.
+  then pruned to the runtime + deployment pair and aligned to community Quarkus (§3).
+- **`integration-tests` module:** dropped at scaffolding; **re-added under P1** for
+  JVM + native validation — a consumer-like app hosting the hermetic fake server
+  (§7, 2e/2f).
 - **Status:** the skeleton builds and the extension loads
   (`Installed features: [cdi, redis-grpc-client]`); it carries **no client logic
   yet** beyond the `FeatureBuildItem`.
 
 ---
 
-## 5. Build-time vs. runtime split (design intent — not yet implemented)
+## 5. Build-time vs. runtime split (decided — P1)
 
-The split is the reason this is an extension. Expected responsibilities, to be
-designed in subsequent rounds (all **[OPEN]**):
-
-- **Runtime module:** the injectable client(s) over the generated Mutiny gRPC
-  stubs; configuration mapping (endpoint, TLS, credential headers); a `@Recorder`
-  to construct/configure clients from recorded config at static/runtime init.
-- **Deployment module:** `@BuildStep`s that register the generated
-  protobuf/gRPC classes for **reflection** (native image), produce the CDI beans
-  for injection, and validate configuration at build time.
+- **Runtime module:** the **high-level per-family client classes** (Level 1 — §7)
+  over the Vert.x `GrpcClient`; the `@ConfigMapping` config root (§8); a **CDI
+  producer** (no `@Recorder`) that builds the `GrpcClient` from the Quarkus-managed
+  `Vertx` + the TLS Registry and produces the four clients; the shared call helper
+  that injects the credential headers (§7, 2d).
+- **Deployment module:** `@BuildStep`s — `FeatureBuildItem`;
+  `AdditionalBeanBuildItem` (so consumers always discover the producer/clients);
+  `ReflectiveClassBuildItem` (native: the generated protobuf message classes — §7,
+  2e). **No `@Recorder`:** nothing needs build-time/static-init work, so the
+  deployment stays lean (a deliberate application of the "enxuto" premise).
 
 ---
 
@@ -155,24 +156,46 @@ this project:
 
 ## 7. Implementation decisions (status, in order)
 
+**Guiding premises (flexible, not rigid):** **Mutiny** — keep the extension
+"Quarkus reactive friendly" wherever sensible; **enxuto** — avoid unnecessary code
+(hence: no `@Recorder`, no generated stubs).
+
 1. **[DECIDED] `.proto` contract sharing** (§2, §4) — **vendored** reference in
-   `contract/`, copied to `runtime/src/main/proto` as the build input. A published
-   contract artifact remains a possible later evolution.
-2. **[DECIDED] Stub generation — 2a** — **client-only**: generate the Mutiny stubs
-   from the vendored `.proto` via the `generate-code` goal, depending on
-   `quarkus-grpc-stubs` (no server) and `quarkus-grpc-codegen` as an **`optional`,
-   build-only** provider (excluding `quarkus-core-deployment`). No `grpc-server`
-   feature; consumer-facing runtime stays clean.
-3. **[DECIDED] Public client surface** — expose the per-family **Mutiny stubs
-   directly** (injectable), no higher-level facade for now.
-4. **[DECIDED] Configuration surface — 2b** — see §8.
-5. **[OPEN] Channel transport & wiring — 2c** — a `@Recorder` builds the `io.grpc`
-   channel; transport leans **Vert.x** (native TLS Registry integration); CDI
-   producers expose the stubs via build steps.
-6. **[OPEN] Credential injection — 2d** — a `ClientInterceptor` attaches the
-   ACCESS_KEY/SECRET_KEY metadata when both are configured.
-7. **[OPEN] Native image — 2e** — reflection/proxy registration build steps and a
-   native integration test.
+   `contract/`, copied to `runtime/src/main/proto` as the build input.
+2. **[DECIDED] Architecture — P1: pure Vert.x gRPC, stub-less, client-only.**
+   *(Supersedes the earlier `quarkus-grpc-stubs` + grpc-netty 2a.)* Priority is
+   **maximum Vert.x integration** + leanness, so we drop `quarkus-grpc` entirely
+   (server **and** its Mutiny stubs) and build directly on
+   `io.vertx.grpc.client.GrpcClient` over the Quarkus-managed `Vertx`. The TLS
+   Registry feeds the Vert.x client options natively; native is largely covered by
+   Quarkus's Vert.x support.
+3. **[DECIDED] Codegen (2a redo)** — generate **only the protobuf message classes**
+   (`protoc --java_out` via a protobuf Maven plugin). **No service stubs** (neither
+   the quarkus Mutiny plugin nor `vertx-grpc-protoc-plugin2`): gRPC only needs a
+   transport + method descriptors + marshallers; stubs are optional sugar, and the
+   consumer touches **our** high-level classes, which encapsulate the low level.
+4. **[DECIDED] Public surface — high-level per-family clients (Level 1).** One class
+   per family (String/Hash/Set/Key), **message-typed** methods returning Mutiny
+   `Uni`, driving `GrpcClient` via `ServiceMethod` descriptors + protobuf
+   marshallers. Encapsulates channel/descriptors/marshalling/headers; **faithful
+   1:1** (no business logic). *(Supersedes "expose raw stubs".)* A Level-2 ergonomic
+   (primitive-typed) API is a possible **additive** future, not now.
+5. **[DECIDED] Configuration surface — 2b** — see §8.
+6. **[DECIDED] Wiring — 2c** — a **CDI producer** (no `@Recorder`; nothing requires
+   build-time/static-init work) builds the `GrpcClient` + the four clients;
+   `AdditionalBeanBuildItem` registers them so consumers always discover them.
+7. **[DECIDED] Credentials — 2d** — **central** header injection in the shared call
+   helper (we own the `GrpcClientRequest`): attach ACCESS_KEY/SECRET_KEY **only when
+   both** are configured. No `ClientInterceptor` needed.
+8. **[DECIDED] Native — 2e** — the extension **never builds native itself**; it
+   contributes native *config* via deployment `@BuildStep`s (register the generated
+   message classes for reflection, + whatever `vertx-grpc-client` needs). The native
+   binary is built by the **consumer** (or by our `integration-tests` module, which
+   stands in as one). **Native build execution is deferred.**
+9. **[DECIDED] Tests — 2f** — re-add the `integration-tests` module (consumer-like
+   app): a hermetic in-test Vert.x gRPC **fake server** + `@QuarkusTest` (JVM) and
+   `@QuarkusIntegrationTest` (native — execution deferred), plus an **opt-in** live
+   test against the CRC gateway.
 
 ---
 
@@ -203,9 +226,9 @@ be a breaking config change, so it is deferred deliberately.
 - **TLS semantics:** `tls-configuration-name` set → TLS using that named registry
   config (CA/truststore there, reloadable); unset → the registry's **default** TLS
   config if present, else **plaintext** (dev). Production requires a TLS config.
-- **Auth semantics:** the interceptor (2d) attaches both headers **only if both**
-  access-key and secret-key are present; otherwise it calls without credentials
-  (the server answers `UNAUTHENTICATED` if it requires them).
+- **Auth semantics:** the shared call helper (2d) attaches both headers **only if
+  both** access-key and secret-key are present; otherwise it calls without
+  credentials (the server answers `UNAUTHENTICATED` if it requires them).
 - **Phase RUN_TIME:** endpoint, credentials and TLS come from env/secret — never
   baked at build (the proxy's "config-driven, environment-agnostic" principle).
 
@@ -213,9 +236,9 @@ be a breaking config change, so it is deferred deliberately.
 
 - **New dependency** `quarkus-tls-registry` (runtime) ⇒ by the runtime↔deployment
   mirror rule (learned in 2a), `quarkus-tls-registry-deployment` in `deployment`.
-- **Nudges 2c toward a Vert.x transport** (the TLS Registry integrates natively
-  with Vert.x options; grpc-netty would need converting the registry config to a
-  Netty `SslContext`).
+- **TLS feeds the Vert.x client options.** Under P1 the transport is pure Vert.x
+  gRPC (§7), so the resolved `TlsConfiguration` from the registry is applied to the
+  Vert.x `GrpcClient`/HTTP options directly — no Netty `SslContext` conversion.
 
 ---
 
@@ -234,12 +257,20 @@ be a breaking config change, so it is deferred deliberately.
 - [x] Reference `.proto` snapshot vendored in `contract/` (reflection-derived,
   validated semantically against the proxy source) and used as the build input
   in `runtime/src/main/proto` (§2, §4, §7).
-- [x] **Stub generation (2a)** — client-only Mutiny codegen via `quarkus-grpc-stubs`
-  + `optional` `quarkus-grpc-codegen`; no server (§7).
-- [x] **Public surface** — per-family Mutiny stubs directly, no facade (§7).
+- [x] **Architecture P1 (2a redo)** — pure Vert.x gRPC, **stub-less**, client-only:
+  drop `quarkus-grpc`/`-stubs`/`-codegen`/grpc-netty; build on
+  `vertx-grpc-client` + the managed `Vertx`; codegen = **messages only** (§7).
+  *(Superseded the quarkus-grpc-stubs + grpc-netty 2a.)*
+- [x] **Public surface** — **high-level per-family clients (Level 1)**, message-typed,
+  returning `Uni`; no raw stubs (§7). *(Superseded "raw Mutiny stubs".)*
 - [x] **Configuration surface (2b)** — single default client under
   `quarkus.redis-grpc-client.*`, RUN_TIME, TLS via the Quarkus TLS Registry (§8).
+- [x] **Wiring (2c)** — CDI producer, no `@Recorder`; `AdditionalBeanBuildItem` (§7).
+- [x] **Credentials (2d)** — central header injection in the shared call helper (§7).
+- [x] **Native (2e)** — deployment build steps (reflection on messages); extension
+  contributes config, consumer builds native; **native execution deferred** (§7).
+- [x] **Tests (2f)** — `integration-tests` module: hermetic Vert.x fake server +
+  JVM/native tests + opt-in CRC live test (§7).
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
-- [ ] Open: channel/transport (2c), credential injection (2d), native image (2e)
-  — see §7.
+- [ ] **All of §7 is decided; implementation (code) is pending.**
