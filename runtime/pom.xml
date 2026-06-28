@@ -15,54 +15,34 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
-        <!-- Client-only: NÃO usamos a extensão quarkus-grpc (que embute servidor).
-             quarkus-grpc-stubs traz o suporte de stubs Mutiny do lado cliente
-             (ClientCalls + transitivamente quarkus-grpc-api com MutinyStub/MutinyGrpc,
-             grpc-stub, grpc-protobuf, quarkus-mutiny). EXCLUÍMOS o quarkus-grpc-codegen
-             daqui: é ferramenta de build-time e arrasta quarkus-core-deployment para
-             o classpath de runtime (proibido numa extensão). -->
+        <!-- P1 (sem stubs): geramos SÓ as classes de mensagem protobuf, que
+             dependem apenas do runtime protobuf-java (versão gerenciada pelo BOM).
+             Nada de quarkus-grpc / stubs / grpc-netty. -->
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-grpc-stubs</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.quarkus</groupId>
-                    <artifactId>quarkus-grpc-codegen</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- O provider de codegen gRPC/Mutiny que o goal generate-code descobre.
-             Precisa estar no classpath normal (compile) para ser descoberto — em
-             'provided' NÃO é. Então:
-               - optional=true  -> NÃO vaza para as deps transitivas dos consumidores;
-               - excluímos quarkus-core-deployment -> mantém esse artefato -deployment
-                 fora do classpath de runtime (a verificação da extensão o proíbe;
-                 o próprio quarkus-maven-plugin fornece core-deployment no codegen). -->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-grpc-codegen</artifactId>
-            <optional>true</optional>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.quarkus</groupId>
-                    <artifactId>quarkus-core-deployment</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Codegen: lê src/main/proto e, por haver o provider de codegen no
-                 classpath, gera as mensagens protobuf + stubs gRPC + stubs Mutiny
-                 (lado cliente é o que consumimos). Roda em generate-sources. -->
+            <!-- Codegen P1: protoc (java_out) só das mensagens, sem stubs de
+                 serviço. O ascopes plugin baixa o protoc alinhado ao protobuf-java
+                 do BOM (3.25.5) e adiciona o gerado às fontes de compilação. -->
             <plugin>
-                <groupId>io.quarkus</groupId>
-                <artifactId>quarkus-maven-plugin</artifactId>
+                <groupId>io.github.ascopes</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <version>5.1.6</version>
+                <configuration>
+                    <protoc>3.25.5</protoc>
+                    <sourceDirectories>
+                        <sourceDirectory>src/main/proto</sourceDirectory>
+                    </sourceDirectories>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
-                            <goal>generate-code</goal>
+                            <goal>generate</goal>
                         </goals>
                     </execution>
                 </executions>
