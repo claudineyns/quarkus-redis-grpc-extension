@@ -204,10 +204,21 @@ decisions below give the rationale.)
    helper (we own the `GrpcClientRequest`): attach ACCESS_KEY/SECRET_KEY **only when
    both** are configured. No `ClientInterceptor` needed.
 8. **[DECIDED] Native — 2e** — the extension **never builds native itself**; it
-   contributes native *config* via deployment `@BuildStep`s (register the generated
-   message classes for reflection, + whatever `vertx-grpc-client` needs). The native
-   binary is built by the **consumer** (or by our `integration-tests` module, which
-   stands in as one). **Native build execution is deferred.**
+   contributes native *config* via deployment `@BuildStep`s. The native binary is
+   built by the **consumer** (or by our `integration-tests` module). **Native build
+   execution is deferred.** Refined approach:
+   - **Protobuf messages → reflection (the core):** a `@BuildStep` scans the
+     `CombinedIndexBuildItem` for classes in the generated package
+     `io.github.claudineyns.redis.grpc.v1` and emits a `ReflectiveClassBuildItem`
+     with **methods + fields** (protobuf's `FieldAccessorTable`/builders use
+     reflection). Index-scan (not a hardcoded list) auto-covers contract changes.
+     *Caveat to validate:* if the generated classes (in our runtime jar) aren't in
+     the consumer's index, add `IndexDependencyBuildItem`/jandex.
+   - **`vertx-grpc-client` native bits:** Vert.x core/Netty native is covered by
+     `quarkus-vertx`; anything specific to `vertx-grpc-client` is handled on the
+     **first native build** (deferred).
+   - **Status:** best-effort and **unverified until a native build runs** (podman,
+     likely with 2f); adjust on demand.
 9. **[DECIDED] Tests — 2f** — **official tests are server-less, coverage-focused via
    mocks**: a mocked `GrpcInvoker` (`MockGrpc`); per-family tests exercise every RPC
    (delegation + descriptor init), plus the wiring test. **Functional** correctness
