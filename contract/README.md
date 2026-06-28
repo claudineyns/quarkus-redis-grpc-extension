@@ -37,11 +37,20 @@ The **proxy repository remains the single source of truth** for the contract
 is a **reference snapshot**, not the canonical definition. If the proxy contract
 changes, re-extract and re-validate.
 
+## Build input (kept in sync)
+
+The extension generates its Mutiny gRPC stubs from an **identical copy** under
+[../runtime/src/main/proto/](../runtime/src/main/proto/) (the layout `quarkus-grpc`
+expects). That copy is the build input; this `contract/` folder is the
+human-facing reference + provenance. **Keep both in sync:** on any re-extraction,
+write to both (or copy `contract/proto/**` → `runtime/src/main/proto/**`).
+
 ## Status / open decision
 
-This is a **reference only**. How the contract feeds the build (stub code
-generation: vendored copy vs. published artifact vs. direct reference) is the open
-decision tracked in [../docs/DESIGN.md](../docs/DESIGN.md) §7 — not yet settled.
+This folder is a **reference**. The decision of *how* the contract feeds the build
+was settled for now as a **vendored copy** (above); the broader sharing mechanism
+(published artifact vs. direct reference) remains open in
+[../docs/DESIGN.md](../docs/DESIGN.md) §7.
 
 ## Re-extraction (reproducibility)
 

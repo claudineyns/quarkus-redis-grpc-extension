@@ -1,0 +1,162 @@
+syntax = "proto3";
+
+package io.github.claudineyns.redis.grpc.v1;
+
+option java_multiple_files = true;
+
+option java_outer_classname = "StringProto";
+
+option java_package = "io.github.claudineyns.redis.grpc.v1";
+
+message GetRequest {
+  string key = 1;
+}
+
+message GetResponse {
+  optional bytes value = 1;
+}
+
+message GetExRequest {
+  string key = 1;
+
+  oneof expiration {
+    int64 ex_seconds = 2;
+
+    int64 px_millis = 3;
+
+    int64 exat_unix_seconds = 4;
+
+    int64 pxat_unix_millis = 5;
+
+    bool persist = 6;
+  }
+}
+
+message GetDelRequest {
+  string key = 1;
+}
+
+message SetRequest {
+  string key = 1;
+
+  bytes value = 2;
+
+  SetCondition condition = 3;
+
+  oneof expiration {
+    int64 ex_seconds = 4;
+
+    int64 px_millis = 5;
+
+    int64 exat_unix_seconds = 6;
+
+    int64 pxat_unix_millis = 7;
+
+    bool keep_ttl = 8;
+  }
+
+  bool get = 9;
+}
+
+message SetResponse {
+  bool applied = 1;
+
+  optional bytes previous = 2;
+}
+
+message KeyValue {
+  string key = 1;
+
+  bytes value = 2;
+}
+
+message MSetRequest {
+  repeated KeyValue entries = 1;
+}
+
+message MSetResponse {
+}
+
+message MGetRequest {
+  repeated string keys = 1;
+}
+
+message MGetResponse {
+  repeated MGetValue values = 1;
+}
+
+message MGetValue {
+  optional bytes value = 1;
+}
+
+message IncrRequest {
+  string key = 1;
+}
+
+message IncrByRequest {
+  string key = 1;
+
+  int64 increment = 2;
+}
+
+message CounterValue {
+  int64 value = 1;
+}
+
+message DecrRequest {
+  string key = 1;
+}
+
+message DecrByRequest {
+  string key = 1;
+
+  int64 decrement = 2;
+}
+
+message AppendRequest {
+  string key = 1;
+
+  bytes value = 2;
+}
+
+message StrlenRequest {
+  string key = 1;
+}
+
+message LengthValue {
+  int64 length = 1;
+}
+
+enum SetCondition {
+  SET_CONDITION_UNSPECIFIED = 0;
+
+  SET_CONDITION_NX = 1;
+
+  SET_CONDITION_XX = 2;
+}
+
+service StringService {
+  rpc Get ( GetRequest ) returns ( GetResponse );
+
+  rpc GetEx ( GetExRequest ) returns ( GetResponse );
+
+  rpc GetDel ( GetDelRequest ) returns ( GetResponse );
+
+  rpc Set ( SetRequest ) returns ( SetResponse );
+
+  rpc MSet ( MSetRequest ) returns ( MSetResponse );
+
+  rpc MGet ( MGetRequest ) returns ( MGetResponse );
+
+  rpc Incr ( IncrRequest ) returns ( CounterValue );
+
+  rpc IncrBy ( IncrByRequest ) returns ( CounterValue );
+
+  rpc Decr ( DecrRequest ) returns ( CounterValue );
+
+  rpc DecrBy ( DecrByRequest ) returns ( CounterValue );
+
+  rpc Append ( AppendRequest ) returns ( LengthValue );
+
+  rpc Strlen ( StrlenRequest ) returns ( LengthValue );
+}

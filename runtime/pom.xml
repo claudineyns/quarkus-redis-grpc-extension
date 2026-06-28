@@ -15,10 +15,30 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
+        <!-- Esta extensão se constrói SOBRE a extensão quarkus-grpc: traz o
+             runtime gRPC (Vert.x) e o suporte aos stubs Mutiny gerados. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-grpc</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Codegen: lê src/main/proto e, por haver quarkus-grpc no classpath,
+                 gera as mensagens protobuf + stubs gRPC + stubs Mutiny (lado
+                 cliente é o que consumimos). Roda em generate-sources. -->
+            <plugin>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate-code</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>io.quarkus</groupId>
                 <artifactId>quarkus-extension-maven-plugin</artifactId>
