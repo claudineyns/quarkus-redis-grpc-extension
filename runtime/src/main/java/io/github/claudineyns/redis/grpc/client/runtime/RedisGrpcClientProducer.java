@@ -14,6 +14,7 @@ import io.vertx.core.net.SocketAddress;
 import io.vertx.grpc.client.GrpcClient;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 
@@ -35,6 +36,14 @@ public class RedisGrpcClientProducer {
     @Inject
     TlsConfigurationRegistry tlsRegistry;
 
+    /**
+     * Implementações de métricas (2g). Resolvable apenas quando o consumidor tem
+     * Micrometer (a impl é registrada por um build step gated por capability);
+     * caso contrário cai no {@link RedisGrpcMetrics#NOOP}.
+     */
+    @Inject
+    Instance<RedisGrpcMetrics> metricsInstance;
+
     private GrpcClient grpcClient;
 
     @Produces
@@ -46,7 +55,19 @@ public class RedisGrpcClientProducer {
                 "quarkus.redis-grpc-client.host is required to use the redis-grpc client"));
         final SocketAddress address = SocketAddress.inetSocketAddress(config.port(), host);
         this.grpcClient = GrpcClient.client(vertx, buildHttpOptions());
-        return new RedisGrpcClient(new GrpcInvoker(grpcClient, address, buildHeaderDecorator()));
+        return new RedisGrpcClient(
+                new GrpcInvoker(grpcClient, address, buildHeaderDecorator(), selectMetrics()));
+    }
+
+    /**
+     * Métricas ativas só quando ligadas por config <strong>e</strong> há uma impl
+     * (Micrometer presente); senão {@link RedisGrpcMetrics#NOOP}.
+     */
+    private RedisGrpcMetrics selectMetrics() {
+        if (config.metrics().enabled() && metricsInstance.isResolvable()) {
+            return metricsInstance.get();
+        }
+        return RedisGrpcMetrics.NOOP;
     }
 
     /**

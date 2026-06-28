@@ -218,14 +218,27 @@ as decisões numeradas abaixo dão a justificativa.)
    o gateway no CRC (gated por `REDIS_GRPC_ACCESS_KEY`, rodados por família, removidos
    no fim). *(Substitui o plano anterior de fake server hermético.)* O módulo
    `integration-tests` fica reservado à validação native (2e, adiada).
-10. **[DECIDIDO] Métricas — 2g (adiado para o fim).** Integração Micrometer
-   **opcional**: uma interface neutra `RedisGrpcMetrics` (default NOOP) instrumentada
-   no helper de chamada; um bean `MicrometerRedisGrpcMetrics` registrado **só quando
-   `Capability.MICROMETER` está presente** (`quarkus-micrometer` como dep `optional`).
-   Um **`Timer "redis.grpc.client.call"`** por RPC, tags `service`/`method`/`status`
-   (nunca a chave Redis — cardinalidade). Toggle
-   `quarkus.redis-grpc-client.metrics.enabled` (default true). A extensão **registra**;
-   o consumidor adiciona o registry Prometheus e expõe o endpoint.
+10. **[FEITO] Métricas — 2g.** Integração Micrometer **opcional**: uma interface
+   neutra `RedisGrpcMetrics` (default NOOP) instrumentada no helper de chamada; um
+   bean `MicrometerRedisGrpcMetrics` registrado **só quando o sistema de métricas
+   Micrometer está ativo** — gated em `MetricsCapabilityBuildItem.metricsSupported(MICROMETER)`
+   (preciso: distingue micrometer de smallrye-metrics e garante o bean `MeterRegistry`);
+   `quarkus-micrometer` é dep de runtime **`optional`**. Um **`Timer
+   "redis.grpc.client.call"`** por RPC, tags `service`/`method`/`status` (nunca a
+   chave Redis — cardinalidade). Toggle `quarkus.redis-grpc-client.metrics.enabled`
+   (default true). A extensão **registra**; o consumidor adiciona o registry
+   Prometheus e expõe o endpoint.
+11. **[FEITO] Propagação de erro (invoker).** Surgiu ao fazer o 2g: o invoker lê
+   `response.status()` e, em não-OK, falha o `Uni` com uma exceção tipada
+   **`RedisGrpcException(code, statusName, message)`** carregando o status gRPC + a
+   mensagem crua do Redis (fiel 1:1 — §5.1 do proxy), em vez do "Invalid gRPC status N"
+   cru do Vert.x. Isso também alimenta a tag `status` das métricas.
+12. **[DECIDIDO] Sem capability própria.** A extensão produz um `FeatureBuildItem`
+   (`redis-grpc-client`) mas **não anuncia `CapabilityBuildItem`**. Capability é token
+   de coordenação/exclusão mútua entre extensões; esta é uma extensão folha, voltada
+   ao cliente — ninguém a consome e não há exclusividade a proteger. Nós *consumimos*
+   capabilities de terceiros (MICROMETER) mas não expomos nenhuma. Revisitar só se uma
+   futura extensão precisar nos detectar ou se a coexistência precisar de gate.
 
 ---
 
@@ -307,8 +320,11 @@ depois seria quebra de config, então fica deliberadamente adiado.
 - [x] **Testes (2f)** — oficiais: **cobertura mockada** por família + teste de
   fiação; funcional: **live tests efêmeros, gitignored** contra o gateway no CRC;
   integration-tests reservado ao native (§7).
-- [x] **Métricas (2g)** — **decidido** (Timer Micrometer opcional por RPC, tags
-  service/method/status); **implementação adiada para o fim** (§7).
+- [x] **Métricas (2g)** — **FEITO**: Timer Micrometer opcional por RPC (tags
+  service/method/status), gated em `MetricsCapabilityBuildItem` (MICROMETER); toggle
+  `quarkus.redis-grpc-client.metrics.enabled` (§7, §10).
+- [x] **Propagação de erro** — invoker expõe status gRPC não-OK como
+  `RedisGrpcException(code, name, message)` tipada (fiel §5.1); alimenta a tag status (§7).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] **Tudo na §7 está decidido; a implementação (código) está pendente.**

@@ -40,6 +40,14 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Test do 2g: quarkus-micrometer ativa o caminho real (produz o
+             MetricsCapabilityBuildItem -> gate dispara -> bean MeterRegistry) e traz
+             o micrometer-core (SimpleMeterRegistry) para o unit test. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-micrometer</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

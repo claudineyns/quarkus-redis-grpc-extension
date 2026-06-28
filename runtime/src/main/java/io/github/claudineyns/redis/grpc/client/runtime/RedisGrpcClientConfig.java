@@ -48,6 +48,19 @@ public interface RedisGrpcClientConfig {
     /** Credenciais de acesso (par ACCESS_KEY/SECRET_KEY). */
     Auth auth();
 
+    /** Métricas (2g). */
+    Metrics metrics();
+
+    interface Metrics {
+
+        /**
+         * Liga/desliga as métricas. Só têm efeito quando o consumidor também tem
+         * Micrometer no classpath (instrumentação opcional, gated por capability).
+         */
+        @WithDefault("true")
+        boolean enabled();
+    }
+
     interface Auth {
 
         /** ACCESS_KEY. Segredo — nunca logar. Sem default. */

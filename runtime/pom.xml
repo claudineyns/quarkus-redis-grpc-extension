@@ -38,6 +38,14 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-mutiny</artifactId>
         </dependency>
+        <!-- Métricas (2g): OPCIONAL. Compila a impl Micrometer, mas não força o
+             Micrometer nos consumidores (optional=true). A instrumentação só é fiada
+             quando o consumidor tem Micrometer (build step gated por capability). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-micrometer</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <build>
