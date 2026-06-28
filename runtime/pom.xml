@@ -28,6 +28,16 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-tls-registry</artifactId>
         </dependency>
+        <!-- Transporte: Vert.x gRPC client puro (P1) sobre o Vertx gerenciado. -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-grpc-client</artifactId>
+        </dependency>
+        <!-- API Mutiny (Uni) da superfície pública. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-mutiny</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

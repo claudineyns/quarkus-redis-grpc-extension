@@ -15,10 +15,14 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc-deployment</artifactId>
         </dependency>
-        <!-- Par -deployment do quarkus-tls-registry (regra do espelhamento). -->
+        <!-- Pares -deployment (regra do espelhamento) do TLS Registry e do Mutiny. -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-tls-registry-deployment</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-mutiny-deployment</artifactId>
         </dependency>
         <dependency>
             <groupId>io.github.claudineyns</groupId>
