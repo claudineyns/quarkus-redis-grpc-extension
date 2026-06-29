@@ -1,12 +1,22 @@
 name: ci-tests
 
 on:
+  # Roda o build em todo PR que mira a main: é o status check que protege o merge.
+  pull_request:
+    branches:
+      - main
+  # E também após integrar na main (valida o estado integrado).
   push:
     branches:
       - main
 
+# Cancela execuções obsoletas do mesmo PR/branch quando chega novo commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  build:
     name: Build & test
     runs-on: ubuntu-latest
 
@@ -21,5 +31,7 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Run tests
-        run: mvn -B -ntp clean test
+      # 'verify' = build completo + testes unit/mock + IT em JVM-mode (failsafe).
+      # Os live tests são env-gated e pulam sem credenciais.
+      - name: Build
+        run: mvn -B -ntp clean verify
