@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.github.claudineyns</groupId>
     <artifactId>redis-grpc-client-parent</artifactId>
-    <version>0.0.1</version>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
     <name>Redis gRPC Client - Parent</name>
     <description>Quarkus extension: high-level client for the redis-grpc gateway</description>
