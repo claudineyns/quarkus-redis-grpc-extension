@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.claudineyns</groupId>
         <artifactId>redis-grpc-client-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.0.1</version>
     </parent>
     <artifactId>redis-grpc-client</artifactId>
     <name>Redis gRPC Client - Runtime</name>
