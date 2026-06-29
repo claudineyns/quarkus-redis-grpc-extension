@@ -1,0 +1,66 @@
+name: publish
+
+# Publica a extensão (parent pom + runtime + deployment) no GitHub Packages
+# (Maven registry). O módulo integration-tests é construído/testado mas NÃO publicado
+# (maven.deploy.skip=true no pom dele).
+#
+# Gatilhos:
+#   - push de tag  v*   -> publica release com a versão da tag (sem o 'v')
+#   - manual (Actions)  -> opcionalmente informe a versão; vazio = usa a do POM
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão a publicar (ex.: 0.1.0). Vazio = usa a versão atual do POM."
+        required: false
+        default: ""
+
+jobs:
+  publish:
+    name: Build & publish to GitHub Packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # necessário para publicar no GitHub Packages
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          # Escreve ~/.m2/settings.xml com um server <id>github</id> cujas
+          # credenciais vêm das env MAVEN_USERNAME/MAVEN_PASSWORD (abaixo).
+          server-id: github
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            V="${GITHUB_REF_NAME#v}"          # tag v0.1.0 -> 0.1.0
+          else
+            V="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Publicando versão: '${V:-<POM atual>}'"
+
+      - name: Set project version
+        if: steps.ver.outputs.version != ''
+        run: mvn -B -ntp versions:set -DnewVersion="${{ steps.ver.outputs.version }}" -DgenerateBackupPoms=false
+
+      # 'deploy' roda o ciclo completo (testes unit/mock + IT JVM-mode via failsafe);
+      # os live tests são env-gated e pulam sem credenciais. Publica só se passar.
+      - name: Build & publish
+        run: mvn -B -ntp clean deploy
+        env:
+          MAVEN_USERNAME: ${{ github.actor }}
+          MAVEN_PASSWORD: ${{ secrets.SECRET_TOKEN }}
