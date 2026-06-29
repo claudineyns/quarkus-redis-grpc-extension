@@ -41,6 +41,21 @@
         </dependencies>
     </dependencyManagement>
 
+    <!-- Destino de publicação: GitHub Packages (Maven). O id 'github' deve casar
+         com o server-id configurado pelo setup-java no workflow de publish. -->
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/claudineyns/quarkus-redis-grpc-extension</url>
+        </repository>
+        <snapshotRepository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/claudineyns/quarkus-redis-grpc-extension</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <pluginManagement>
             <plugins>

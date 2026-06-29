@@ -10,6 +10,11 @@
     <artifactId>redis-grpc-client-integration-tests</artifactId>
     <name>Redis gRPC Client - Integration Tests</name>
 
+    <properties>
+        <!-- App de teste: construída e testada, mas nunca publicada no registry. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
     <dependencies>
         <!-- A extensão sob teste. A augmentation puxa o -deployment via descritor. -->
         <dependency>
