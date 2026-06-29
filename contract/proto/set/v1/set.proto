@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package io.github.claudineyns.redis.grpc.v1;
+
+option java_multiple_files = true;
+
+option java_outer_classname = "SetProto";
+
+option java_package = "io.github.claudineyns.redis.grpc.v1";
+
+message SAddRequest {
+  string key = 1;
+
+  repeated string members = 2;
+}
+
+message SRemRequest {
+  string key = 1;
+
+  repeated string members = 2;
+}
+
+message SCardRequest {
+  string key = 1;
+}
+
+message SIsMemberRequest {
+  string key = 1;
+
+  string member = 2;
+}
+
+message SMIsMemberRequest {
+  string key = 1;
+
+  repeated string members = 2;
+}
+
+message SMembersRequest {
+  string key = 1;
+}
+
+message SPopRequest {
+  string key = 1;
+
+  optional int64 count = 2;
+}
+
+message SetCount {
+  int64 count = 1;
+}
+
+message SetMembership {
+  bool is_member = 1;
+}
+
+message SetMemberships {
+  repeated bool members = 1;
+}
+
+message SetMembers {
+  repeated string members = 1;
+}
+
+message SScanRequest {
+  string key = 1;
+
+  string cursor = 2;
+
+  optional string match = 3;
+
+  optional int64 count = 4;
+}
+
+message SScanResponse {
+  string cursor = 1;
+
+  repeated string members = 2;
+}
+
+service SetService {
+  rpc SAdd ( SAddRequest ) returns ( SetCount );
+
+  rpc SRem ( SRemRequest ) returns ( SetCount );
+
+  rpc SCard ( SCardRequest ) returns ( SetCount );
+
+  rpc SIsMember ( SIsMemberRequest ) returns ( SetMembership );
+
+  rpc SMIsMember ( SMIsMemberRequest ) returns ( SetMemberships );
+
+  rpc SMembers ( SMembersRequest ) returns ( SetMembers );
+
+  rpc SPop ( SPopRequest ) returns ( SetMembers );
+
+  rpc SScan ( SScanRequest ) returns ( SScanResponse );
+}

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.claudineyns</groupId>
+        <artifactId>redis-grpc-client-parent</artifactId>
+        <version>0.0.1</version>
+    </parent>
+    <artifactId>redis-grpc-client-integration-tests</artifactId>
+    <name>Redis gRPC Client - Integration Tests</name>
+
+    <properties>
+        <!-- App de teste: construída e testada, mas nunca publicada no registry. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <dependencies>
+        <!-- A extensão sob teste. A augmentation puxa o -deployment via descritor. -->
+        <dependency>
+            <groupId>io.github.claudineyns</groupId>
+            <artifactId>redis-grpc-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Endpoint REST para o @QuarkusIntegrationTest exercitar o artefato. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.quarkus</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Failsafe roda os *IT (@QuarkusIntegrationTest) contra o artefato
+                 empacotado (jar em JVM-mode; native com -Dnative). A config base
+                 (argLine + log manager) vem do pluginManagement do parent. -->
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- mvn verify -Dnative: build native (via podman container-build) + IT
+             contra o binário. Adiado até subir a memória da podman machine. -->
+        <profile>
+            <id>native</id>
+            <activation>
+                <property>
+                    <name>native</name>
+                </property>
+            </activation>
+            <properties>
+                <quarkus.native.enabled>true</quarkus.native.enabled>
+                <quarkus.package.jar.enabled>false</quarkus.package.jar.enabled>
+            </properties>
+        </profile>
+    </profiles>
+</project>

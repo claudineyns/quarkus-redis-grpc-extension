@@ -1,0 +1,10 @@
+name: Redis gRPC Client
+description: High-level client for the redis-grpc gateway (a gRPC-over-Redis proxy).
+metadata:
+  keywords:
+    - redis
+    - grpc
+    - client
+  categories:
+    - "data"
+  status: "experimental"

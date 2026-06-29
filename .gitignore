@@ -3,6 +3,10 @@
 .claude/
 temp/
 
+# Ephemeral per-family live tests against the CRC server (NOT committed;
+# removed at the end of the implementation). One class per family.
+**/grpc/client/live/
+
 # Compiled class file
 *.class
 target/

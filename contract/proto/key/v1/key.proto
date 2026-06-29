@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+package io.github.claudineyns.redis.grpc.v1;
+
+option java_multiple_files = true;
+
+option java_outer_classname = "KeyProto";
+
+option java_package = "io.github.claudineyns.redis.grpc.v1";
+
+message DelRequest {
+  repeated string keys = 1;
+}
+
+message UnlinkRequest {
+  repeated string keys = 1;
+}
+
+message ExistsRequest {
+  repeated string keys = 1;
+}
+
+message TypeRequest {
+  string key = 1;
+}
+
+message KeyCount {
+  int64 count = 1;
+}
+
+message KeyType {
+  string type = 1;
+}
+
+message ExpireRequest {
+  string key = 1;
+
+  int64 seconds = 2;
+
+  ExpireCondition condition = 3;
+}
+
+message PExpireRequest {
+  string key = 1;
+
+  int64 millis = 2;
+
+  ExpireCondition condition = 3;
+}
+
+message ExpireAtRequest {
+  string key = 1;
+
+  int64 unix_seconds = 2;
+
+  ExpireCondition condition = 3;
+}
+
+message PExpireAtRequest {
+  string key = 1;
+
+  int64 unix_millis = 2;
+
+  ExpireCondition condition = 3;
+}
+
+message PersistRequest {
+  string key = 1;
+}
+
+message TtlRequest {
+  string key = 1;
+}
+
+message PTtlRequest {
+  string key = 1;
+}
+
+message KeyChange {
+  bool applied = 1;
+}
+
+message TtlValue {
+  int64 value = 1;
+}
+
+message ScanRequest {
+  string cursor = 1;
+
+  optional string match = 2;
+
+  optional int64 count = 3;
+
+  optional string type = 4;
+}
+
+message ScanResponse {
+  string cursor = 1;
+
+  repeated string keys = 2;
+}
+
+enum ExpireCondition {
+  EXPIRE_CONDITION_UNSPECIFIED = 0;
+
+  EXPIRE_CONDITION_NX = 1;
+
+  EXPIRE_CONDITION_XX = 2;
+
+  EXPIRE_CONDITION_GT = 3;
+
+  EXPIRE_CONDITION_LT = 4;
+}
+
+service KeyService {
+  rpc Del ( DelRequest ) returns ( KeyCount );
+
+  rpc Unlink ( UnlinkRequest ) returns ( KeyCount );
+
+  rpc Exists ( ExistsRequest ) returns ( KeyCount );
+
+  rpc Type ( TypeRequest ) returns ( KeyType );
+
+  rpc Expire ( ExpireRequest ) returns ( KeyChange );
+
+  rpc PExpire ( PExpireRequest ) returns ( KeyChange );
+
+  rpc ExpireAt ( ExpireAtRequest ) returns ( KeyChange );
+
+  rpc PExpireAt ( PExpireAtRequest ) returns ( KeyChange );
+
+  rpc Persist ( PersistRequest ) returns ( KeyChange );
+
+  rpc Ttl ( TtlRequest ) returns ( TtlValue );
+
+  rpc PTtl ( PTtlRequest ) returns ( TtlValue );
+
+  rpc Scan ( ScanRequest ) returns ( ScanResponse );
+}
