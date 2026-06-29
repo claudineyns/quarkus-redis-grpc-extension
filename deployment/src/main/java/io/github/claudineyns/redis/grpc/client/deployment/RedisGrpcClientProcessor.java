@@ -9,6 +9,7 @@ import org.jboss.logging.Logger;
 import io.github.claudineyns.redis.grpc.client.runtime.MicrometerRedisGrpcMetrics;
 import io.github.claudineyns.redis.grpc.client.runtime.RedisGrpcClientProducer;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
+import io.quarkus.arc.processor.DotNames;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
@@ -60,6 +61,10 @@ class RedisGrpcClientProcessor {
                 && metricsCapability.get().metricsSupported(MetricsFactory.MICROMETER)) {
             additionalBeans.produce(AdditionalBeanBuildItem.builder()
                     .addBeanClass(MicrometerRedisGrpcMetrics.class)
+                    // Escopo definido aqui (a classe não tem anotação — ver javadoc dela):
+                    // o gate é a única porta; sem isso o runtime jar indexado (2e) a
+                    // auto-descobriria e exigiria MeterRegistry sem Micrometer presente.
+                    .setDefaultScope(DotNames.APPLICATION_SCOPED)
                     .setUnremovable()
                     .build());
         }

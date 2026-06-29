@@ -171,7 +171,7 @@ decisions below give the rationale.)
 | **2c** | Channel + clients — `vertx-grpc-client` `GrpcClient` via a CDI producer (managed `Vertx` + TLS Registry); the `RedisGrpcClient` aggregator + its four family clients (Level 1); `AdditionalBeanBuildItem`. |
 | **2d** | Credentials — central ACCESS_KEY/SECRET_KEY header injection in the shared call helper. |
 | **2e** | Native config — deployment `@BuildStep`s registering the message classes for reflection (native build **execution deferred**). |
-| **2f** | Tests (official) — server-less **mock coverage** per family + the wiring test (committed); **functional** validation via **ephemeral, gitignored live tests** against the CRC gateway (env-gated, run per family). |
+| **2f** | Tests (official) — server-less **mock coverage** per family + the wiring test (committed); **functional** validation via **ephemeral, gitignored live tests** against the CRC gateway (env-gated, run per family). Plus a **committed `integration-tests` module** (`@QuarkusIntegrationTest`: client wiring + protobuf round-trip exercising 2e reflection) — JVM-mode now, native via podman container-build (deferred). |
 | **2g** | Metrics — optional Micrometer `Timer` per RPC (tags `service`/`method`/`status`); the extension records, the consumer exposes Prometheus. |
 | **2h** | Logging — lean access log in the shared call helper (`service`/`method`/`status`/`durationMs`, DEBUG) + lifecycle (DEBUG) + unexpected failures (WARN); JBoss Logging, toggled by category level; never secrets/values. |
 
@@ -225,8 +225,15 @@ decisions below give the rationale.)
    (delegation + descriptor init), plus the wiring test. **Functional** correctness
    is guaranteed by **ephemeral, gitignored live tests** against the CRC gateway
    (env-gated via `REDIS_GRPC_ACCESS_KEY`, run per family, removed at the end).
-   *(Replaces the earlier hermetic fake-server plan.)* The `integration-tests`
-   module is reserved for native validation (2e, deferred).
+   *(Replaces the earlier hermetic fake-server plan.)* In addition, a **committed**
+   `integration-tests` module validates the extension on the **packaged artifact**:
+   a `@QuarkusIntegrationTest` hits a REST endpoint that (a) confirms `RedisGrpcClient`
+   wiring and (b) does a protobuf **round-trip read via `getField(...)`** — exercising
+   the `FieldAccessorTable` reflection that **2e** registers, so a native build that
+   missed a class fails here. Runs **JVM-mode now** (`mvn verify`); the **native** run
+   is via **podman container-build** (`-Dnative -Dquarkus.native.container-build=true
+   -Dquarkus.native.container-runtime=podman`), **deferred** until the podman machine
+   memory is raised (2 GiB is too low for `native-image`).
 10. **[DONE] Metrics — 2g.** **Optional** Micrometer integration: a neutral
    `RedisGrpcMetrics` interface (NOOP default) instrumented in the shared call helper;
    a `MicrometerRedisGrpcMetrics` bean registered **only when the Micrometer metrics
@@ -237,6 +244,12 @@ decisions below give the rationale.)
    (never the Redis key — cardinality). Toggle
    `quarkus.redis-grpc-client.metrics.enabled` (default true). The extension
    **records**; the consumer adds the Prometheus registry and exposes the endpoint.
+   **Interaction with 2e (found via the 2f IT):** because 2e's `IndexDependencyBuildItem`
+   indexes the runtime jar, that jar becomes a **bean archive** — so a scope annotation
+   on `MicrometerRedisGrpcMetrics` would make Arc **auto-discover** it unconditionally
+   and demand a `MeterRegistry` even without Micrometer. Fix: the impl carries **no
+   scope annotation**; the gated build step is the sole entry point and sets the scope
+   via `AdditionalBeanBuildItem.setDefaultScope(APPLICATION_SCOPED)`.
 11. **[DONE] Error propagation (invoker).** Surfaced while doing 2g: the invoker
    reads `response.status()` and, on non-OK, fails the `Uni` with a typed
    **`RedisGrpcException(code, statusName, message)`** carrying the gRPC status +
@@ -356,6 +369,10 @@ be a breaking config change, so it is deferred deliberately.
   (service/method/status/durationMs at DEBUG) + lifecycle (DEBUG) + transport
   failures (WARN); JBoss Logging, category-level toggle, never secrets/values; no
   key/MDC (§7, §14). Validated end-to-end (DEBUG) against CRC.
+- [ ] **Integration-tests module (2f)** — committed module with `@QuarkusIntegrationTest`
+  (client wiring + protobuf round-trip via `getField`, exercising 2e reflection).
+  **JVM-mode `verify` done**; **native run via podman container-build deferred**
+  (podman machine memory bump pending) (§7, §9).
 - [ ] Reframed mandatory principles / testing conventions (proxy §2/§9) — **not
   yet ratified**; Sonar/Jacoco deferred to the first vertical.
 - [ ] **All of §7 is decided; implementation (code) is pending.**

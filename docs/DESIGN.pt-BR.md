@@ -173,7 +173,7 @@ as decisões numeradas abaixo dão a justificativa.)
 | **2c** | Canal + clientes — `GrpcClient` do `vertx-grpc-client` via producer CDI (`Vertx` gerenciado + TLS Registry); o agregador `RedisGrpcClient` + seus quatro clientes de família (Nível 1); `AdditionalBeanBuildItem`. |
 | **2d** | Credenciais — injeção central dos headers ACCESS_KEY/SECRET_KEY no helper de chamada compartilhado. |
 | **2e** | Config de native — `@BuildStep`s no deployment registrando as classes de mensagem para reflection (**execução** do build native **adiada**). |
-| **2f** | Testes (oficiais) — **cobertura mockada** por família + teste de fiação (commitados); validação **funcional** via **live tests efêmeros, gitignored** contra o gateway no CRC (gated por env, rodados por família). |
+| **2f** | Testes (oficiais) — **cobertura mockada** por família + teste de fiação (commitados); validação **funcional** via **live tests efêmeros, gitignored** contra o gateway no CRC (gated por env, rodados por família). Mais um **módulo `integration-tests` commitado** (`@QuarkusIntegrationTest`: fiação do cliente + round-trip protobuf exercitando a reflection do 2e) — JVM-mode agora, native via container-build do podman (adiado). |
 | **2g** | Métricas — Timer Micrometer opcional por RPC (tags `service`/`method`/`status`); a extensão registra, o consumidor expõe Prometheus. |
 | **2h** | Logging — log de acesso enxuto no helper de chamada (`service`/`method`/`status`/`durationMs`, DEBUG) + lifecycle (DEBUG) + falhas inesperadas (WARN); JBoss Logging, toggle por nível de categoria; nunca segredos/valores. |
 
@@ -228,8 +228,16 @@ as decisões numeradas abaixo dão a justificativa.)
    exercitam todo RPC (delegação + init dos descritores), mais o teste de fiação. A
    **correção funcional** é garantida por **live tests efêmeros, gitignored** contra
    o gateway no CRC (gated por `REDIS_GRPC_ACCESS_KEY`, rodados por família, removidos
-   no fim). *(Substitui o plano anterior de fake server hermético.)* O módulo
-   `integration-tests` fica reservado à validação native (2e, adiada).
+   no fim). *(Substitui o plano anterior de fake server hermético.)* Além disso, um
+   módulo `integration-tests` **commitado** valida a extensão sobre o **artefato
+   empacotado**: um `@QuarkusIntegrationTest` chama um endpoint REST que (a) confirma a
+   fiação do `RedisGrpcClient` e (b) faz um **round-trip protobuf lendo via
+   `getField(...)`** — exercitando a reflection da `FieldAccessorTable` que o **2e**
+   registra, de modo que um build native que perdeu uma classe falha aqui. Roda
+   **JVM-mode agora** (`mvn verify`); a execução **native** é via **container-build do
+   podman** (`-Dnative -Dquarkus.native.container-build=true
+   -Dquarkus.native.container-runtime=podman`), **adiada** até subir a memória da
+   podman machine (2 GiB é pouco para o `native-image`).
 10. **[FEITO] Métricas — 2g.** Integração Micrometer **opcional**: uma interface
    neutra `RedisGrpcMetrics` (default NOOP) instrumentada no helper de chamada; um
    bean `MicrometerRedisGrpcMetrics` registrado **só quando o sistema de métricas
@@ -240,6 +248,12 @@ as decisões numeradas abaixo dão a justificativa.)
    chave Redis — cardinalidade). Toggle `quarkus.redis-grpc-client.metrics.enabled`
    (default true). A extensão **registra**; o consumidor adiciona o registry
    Prometheus e expõe o endpoint.
+   **Interação com o 2e (achada pelo IT do 2f):** como o `IndexDependencyBuildItem` do
+   2e indexa o runtime jar, esse jar vira um **bean archive** — então uma anotação de
+   escopo em `MicrometerRedisGrpcMetrics` faria o Arc **auto-descobri-la**
+   incondicionalmente e exigir um `MeterRegistry` mesmo sem Micrometer. Correção: a
+   impl **não tem anotação de escopo**; o build step gated é a única porta e define o
+   escopo via `AdditionalBeanBuildItem.setDefaultScope(APPLICATION_SCOPED)`.
 11. **[FEITO] Propagação de erro (invoker).** Surgiu ao fazer o 2g: o invoker lê
    `response.status()` e, em não-OK, falha o `Uni` com uma exceção tipada
    **`RedisGrpcException(code, statusName, message)`** carregando o status gRPC + a
@@ -363,6 +377,10 @@ depois seria quebra de config, então fica deliberadamente adiado.
   (service/method/status/durationMs em DEBUG) + lifecycle (DEBUG) + falhas de
   transporte (WARN); JBoss Logging, toggle por nível de categoria, nunca
   segredos/valores; sem chave/MDC (§7, §14). Validado end-to-end (DEBUG) no CRC.
+- [ ] **Módulo integration-tests (2f)** — módulo commitado com `@QuarkusIntegrationTest`
+  (fiação do cliente + round-trip protobuf via `getField`, exercitando a reflection
+  do 2e). **`verify` JVM-mode feito**; **execução native via container-build do podman
+  adiada** (subir memória da podman machine pendente) (§7, §9).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] **Tudo na §7 está decidido; a implementação (código) está pendente.**
