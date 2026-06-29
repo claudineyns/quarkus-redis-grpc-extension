@@ -234,10 +234,16 @@ as decisões numeradas abaixo dão a justificativa.)
    fiação do `RedisGrpcClient` e (b) faz um **round-trip protobuf lendo via
    `getField(...)`** — exercitando a reflection da `FieldAccessorTable` que o **2e**
    registra, de modo que um build native que perdeu uma classe falha aqui. Roda
-   **JVM-mode agora** (`mvn verify`); a execução **native** é via **container-build do
-   podman** (`-Dnative -Dquarkus.native.container-build=true
-   -Dquarkus.native.container-runtime=podman`), **adiada** até subir a memória da
-   podman machine (2 GiB é pouco para o `native-image`).
+   **JVM-mode** (`mvn verify`) e **native** via **container-build do podman**
+   (`-Dnative -Dquarkus.native.container-build=true
+   -Dquarkus.native.container-runtime=podman`). **Status: validado.** A imagem native
+   **builda limpa** (a reflection do protobuf registra, sem classe faltando) e o
+   **runtime native funciona** — `/wired`→`true`, `/proto-roundtrip`→`it-key`.
+   **Caveat Windows:** o container-build emite um **ELF Linux**, que o
+   `@QuarkusIntegrationTest` no host Windows não consegue executar (`Unable to
+   automatically find native image`), então a checagem de runtime foi feita **rodando
+   o binário num container Linux** e chamando os endpoints via curl. Para o harness do
+   IT dirigir isso, rode `mvn verify -Dnative` **dentro do WSL/Linux**.
 10. **[FEITO] Métricas — 2g.** Integração Micrometer **opcional**: uma interface
    neutra `RedisGrpcMetrics` (default NOOP) instrumentada no helper de chamada; um
    bean `MicrometerRedisGrpcMetrics` registrado **só quando o sistema de métricas
@@ -377,10 +383,12 @@ depois seria quebra de config, então fica deliberadamente adiado.
   (service/method/status/durationMs em DEBUG) + lifecycle (DEBUG) + falhas de
   transporte (WARN); JBoss Logging, toggle por nível de categoria, nunca
   segredos/valores; sem chave/MDC (§7, §14). Validado end-to-end (DEBUG) no CRC.
-- [ ] **Módulo integration-tests (2f)** — módulo commitado com `@QuarkusIntegrationTest`
+- [x] **Módulo integration-tests (2f)** — módulo commitado com `@QuarkusIntegrationTest`
   (fiação do cliente + round-trip protobuf via `getField`, exercitando a reflection
-  do 2e). **`verify` JVM-mode feito**; **execução native via container-build do podman
-  adiada** (subir memória da podman machine pendente) (§7, §9).
+  do 2e). **`verify` JVM-mode verde**; **build native verde** (container-build do
+  podman) e **runtime native validado** rodando o binário Linux num container
+  (`/wired`→`true`, `/proto-roundtrip`→`it-key`). O harness do IT no Windows não
+  executa o ELF Linux — ver §9 (§7, §9).
 - [ ] Princípios mandatórios reenquadrados / convenções de teste (proxy §2/§9) —
   **ainda não ratificados**; Sonar/Jacoco diferido até a primeira vertical.
 - [ ] **Tudo na §7 está decidido; a implementação (código) está pendente.**
